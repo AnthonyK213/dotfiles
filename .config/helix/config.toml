@@ -1,0 +1,71 @@
+theme = "emacs"
+
+[editor]
+line-number = "absolute"
+true-color = true
+color-modes = true
+
+[editor.cursor-shape]
+normal = "block"
+insert = "block"
+select = "block"
+
+[editor.indent-guides]
+render = true
+character = "▏"
+skip-levels = 0
+
+[keys.normal]
+G = "goto_last_line"
+K = "hover"
+0 = "goto_line_start"
+"$" = "goto_line_end"
+C-p = "move_line_up"
+C-n = "move_line_down"
+A-x = "command_mode"
+A-h = "jump_view_left"
+A-j = "jump_view_down"
+A-k = "jump_view_up"
+A-l = "jump_view_right"
+F12 = "goto_definition"
+S-F12 = "goto_reference"
+
+[keys.insert]
+C-b = "move_char_left"
+C-f= "move_char_right"
+C-p = "move_line_up"
+C-n = "move_line_down"
+A-b = "move_prev_word_start"
+A-f = "move_next_word_end"
+
+[keys.select]
+0 = "goto_line_start"
+"$" = "goto_line_end"
+
+[keys.normal.space.b]
+d = ":buffer-close"
+p = "goto_previous_buffer"
+n = "goto_next_buffer"
+
+[keys.normal.space.f]
+a = "symbol_picker"
+b = "buffer_picker"
+f = "file_picker"
+g = "global_search"
+
+[keys.normal.space.k]
+c = "toggle_comments"
+
+[keys.normal.space.l]
+a = "code_action"
+f = "goto_definition"
+n = "rename_symbol"
+r = "goto_reference"
+
+[keys.normal.space.s]
+a = "surround_add"
+c = "surround_replace"
+d = "surround_delete"
+
+[keys.select.space.s]
+a = "surround_add"

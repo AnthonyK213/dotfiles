@@ -1,0 +1,6 @@
+[user]
+    name  = AnthonyK213
+    email = tjjzqwh@163.com
+[core]
+    autocrlf = input
+    filemode = false
