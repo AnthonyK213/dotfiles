@@ -65,3 +65,19 @@
 | variable   | description |
 |------------|-------------|
 | USER_PROXY | Proxy URL   |
+
+## Zsh
+
+### Installation
+
+- Create symlink
+  ``` sh
+  ln -s path/to/dotfiles/zsh/zshrc ~/.zshrc
+  ```
+
+- Install plugins (optional)
+  ``` sh
+  mkdir -p ~/.zsh
+  git clone https://github.com/zsh-users/zsh-autosuggestions.git ~/.zsh/zsh-autosuggestions
+  git clone https://github.com/zsh-users/zsh-syntax-highlighting.git ~/.zsh/zsh-syntax-highlighting
+  ```
