@@ -2,4 +2,8 @@ emacs/*
 !emacs/
 !emacs/init.el
 
+pwsh/*
+!pwsh/
+!pwsh/Microsoft.PowerShell_profile.ps1
+
 .DS_Store
