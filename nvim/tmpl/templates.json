@@ -1,0 +1,67 @@
+[
+  {
+    "name": "C executable",
+    "args": [
+      "ProjectName"
+    ],
+    "dirs": [
+      "src"
+    ],
+    "files": {
+      ".clang-format": "common/common-clang-format",
+      ".editorconfig": "common/common-editorconfig",
+      ".gitignore": "common/common-gitignore",
+      "CMakeKits.json": "cmake/cmake-kits",
+      "CMakeLists.txt": "c/c-cmakelists",
+      "src/CMakeLists.txt": "c/c-src-cmakelists-exe",
+      "src/main.c": "c/c-src-exe"
+    }
+  },
+  {
+    "name": "C library",
+    "args": [
+      "ProjectName"
+    ],
+    "dirs": [
+      "include",
+      "include/#{ProjectName}",
+      "src"
+    ],
+    "files": {
+      ".clang-format": "common/common-clang-format",
+      ".editorconfig": "common/common-editorconfig",
+      ".gitignore": "common/common-gitignore",
+      "CMakeKits.json": "cmake/cmake-kits",
+      "CMakeLists.txt": "c/c-cmakelists",
+      "#{ProjectName}Config.cmake.in": "cmake/cmake-config-cmake-in",
+      "include/#{ProjectName}/lib.h": "c/c-include-lib",
+      "src/CMakeLists.txt": "c/c-src-cmakelists-lib",
+      "src/lib.c": "c/c-src-lib"
+    }
+  },
+  {
+    "name": "C++ library",
+    "args": [
+      "ProjectName"
+    ],
+    "dirs": [
+      "include",
+      "include/#{ProjectName}",
+      "src",
+      "tests"
+    ],
+    "files": {
+      ".clang-format": "common/common-clang-format",
+      ".editorconfig": "common/common-editorconfig",
+      ".gitignore": "common/common-gitignore",
+      "CMakeKits.json": "cmake/cmake-kits",
+      "CMakeLists.txt": "cpp/cpp-cmakelists",
+      "#{ProjectName}Config.cmake.in": "cmake/cmake-config-cmake-in",
+      "include/#{ProjectName}/lib.h": "cpp/cpp-include-lib",
+      "src/CMakeLists.txt": "cpp/cpp-src-cmakelists",
+      "src/lib.cpp": "cpp/cpp-src-lib",
+      "tests/CMakeLists.txt": "cpp/cpp-tests-cmakelists",
+      "tests/main.cpp": "cpp/cpp-tests-main"
+    }
+  }
+]

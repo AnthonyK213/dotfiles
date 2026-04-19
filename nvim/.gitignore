@@ -1,0 +1,13 @@
+# Configuration
+[._]nvimrc
+.luarc.json
+
+# Rust
+/rust/*/target
+Cargo.lock
+
+# Misc
+*.netrwhist
+.DS_Store
+doc/tags
+nvim-pack-lock.json

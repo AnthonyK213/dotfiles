@@ -1,0 +1,134 @@
+*nviq.txt*
+*Nviq* *nviq*
+================================================================================
+CONTENTS                                                         *nviq-contents*
+
+  1. Config                                                      |nviq-config|
+  2. Modules                                                    |nviq-modules|
+     2.1 core                                                      |nviq-core|
+     2.2 util                                                      |nviq-util|
+     2.3 appl                                                      |nviq-appl|
+     2.4 pack                                                      |nviq-pack|
+  3. Mappings                                                  |nviq-mappings|
+  4. Commands                                                  |nviq-commands|
+
+================================================================================
+1. Config                                                          *nviq-config*
+
+Create file `.nvimrc` (also can be `_nvimrc` on Windows) in `home` or `config`
+directory. It's a pure text file with json syntax. Example:
+
+>json
+    {
+      "general": {
+        "shell": "zsh"
+      },
+      "path": {
+        "desktop": "$HOME/Desktop",
+        "vimwiki": "$HOME/vimwiki"
+      },
+      "tui": {
+        "scheme": "default",
+        "theme": "auto",
+        "border": "rounded",
+        "devicons": true,
+        "global_status": true
+      },
+      "gui": {
+        "theme": "auto",
+        "font_half": "Courier New",
+        "font_wide": "Fangsong",
+        "font_size": 13,
+        "ligature": true,
+        "cursor_blink": true
+      },
+      "lsp": {
+        "clangd": {
+          "enable": true
+        },
+        "lua_ls": {
+          "enable": false,
+          "install": true,
+          "settings": {
+            "Lua": {
+              "runtime": {
+                "version": "LuaJIT"
+              },
+              "diagnostics": {
+                "globals": [
+                  "vim"
+                ]
+              },
+              "workspace": {
+                "library": [],
+                "checkThirdParty": false
+              },
+              "telemetry": {
+                "enable": false
+              },
+              "format": {
+                "defaultConfig": {
+                  "indent_style": "space",
+                  "indent_size": "2"
+                }
+              }
+            }
+          }
+        },
+        "pyright": {
+          "enable": false,
+          "install": true,
+          "settings": {
+            "python": {
+              "analysis": {
+                "autoSearchPaths": true,
+                "diagnosticMode": "workspace",
+                "useLibraryCodeForTypes": true,
+                "stubPath": "stubPath",
+                "typeCheckingMode": "off"
+              }
+            }
+          }
+        }
+        // And so on...
+      },
+      "dap": {
+        "python": {
+          "enable": true
+        }
+      },
+      "ts": {
+        "parsers": [
+          "c",
+          "lua"
+        ]
+      }
+    }
+<
+
+================================================================================
+2. Modules                                                        *nviq-modules*
+
+--------------------------------------------------------------------------------
+2.1 core                                                             *nviq-core*
+
+--------------------------------------------------------------------------------
+2.2 util                                                             *nviq-util*
+
+--------------------------------------------------------------------------------
+2.3 appl                                                             *nviq-appl*
+
+--------------------------------------------------------------------------------
+2.4 pack                                                             *nviq-pack*
+
+================================================================================
+3. Mappings                                                      *nviq-mappings*
+
+================================================================================
+4. Commands                                                      *nviq-commands*
+
+*:Time*
+    Print the current time.
+
+================================================================================
+vim:tw=80:ts=2:ft=help:norl:syntax=help:

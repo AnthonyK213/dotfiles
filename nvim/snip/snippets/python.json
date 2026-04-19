@@ -1,0 +1,31 @@
+{
+  "Insert python shebang": {
+    "prefix": "env",
+    "body": [
+      "#!/usr/bin/env python",
+      "${0}"
+    ],
+    "description": "Add shebang line for default python interpreter."
+  },
+  "Insert python3 shebang": {
+    "prefix": "env3",
+    "body": [
+      "#!/usr/bin/env python3",
+      "${0}"
+    ],
+    "description": "Add shebang line for default python3 interpreter."
+  },
+  "from ... import ...": {
+    "prefix": "from",
+    "body": "from ${1:package/module} import ${2:names}${0}",
+    "description": "Import objects from the module directly."
+  },
+  "if main": {
+    "prefix": "ifmain",
+    "body": [
+      "if __name__ == \"__main__\":",
+      "\t${1:main()}${0}"
+    ],
+    "description": "Create implicitly all the code at the top level."
+  }
+}

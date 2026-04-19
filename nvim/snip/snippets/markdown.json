@@ -1,0 +1,52 @@
+{
+  "Insert picture": {
+    "prefix": "pix",
+    "body": [
+      "![${1:alt}](${2:link} \"${3:title}\")${0}"
+    ],
+    "description": "Insert picture."
+  },
+  "Insert link": {
+    "prefix": "lnk",
+    "body": [
+      "[${1:caption}](${2:link} \"${3:title}\")${0}"
+    ],
+    "description": "Insert link."
+  },
+  "Insert code block": {
+    "prefix": "blk",
+    "body": [
+      "``` ${1:language}",
+      "${0}",
+      "```"
+    ],
+    "description": "Insert code block."
+  },
+  "Insert formula": {
+    "prefix": "fml",
+    "body": [
+      "\\$\\$",
+      "${1}",
+      "\\$\\$",
+      "${0}"
+    ],
+    "description": "Insert formula."
+  },
+  "Insert image": {
+    "prefix": "img",
+    "body": [
+      "<img src=\"${1:link}\" alt=\"${2:alt}\" title=\"${3:title}\" height=\"${4:height}\" width=\"${5:width}\">${0}"
+    ],
+    "description": "Insert image."
+  },
+  "Centered label": {
+    "prefix": "cen",
+    "body": [
+      "<center>",
+      "\t${1}",
+      "</center>",
+      "${0}"
+    ],
+    "description": "Centered label."
+  }
+}

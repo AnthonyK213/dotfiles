@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nviq Markdown Previewer</title>
+
+  <link rel="stylesheet" href="/static/github-markdown-css-5.9.0/github-markdown.css">
+
+  <link rel="stylesheet" href="/static/katex/katex.min.css">
+  <script defer src="/static/katex/katex.min.js"></script>
+
+  <script src="/static/mermaid.min.js"></script>
+  <script type="module">
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: "default",
+      securityLevel: "strict"
+    });
+    window.mermaid = mermaid;
+  </script>
+
+  <style>
+    .markdown-body {
+      box-sizing: border-box;
+      min-width: 200px;
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 45px;
+    }
+
+    @media (max-width: 767px) {
+      .markdown-body {
+        padding: 15px;
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      body {
+        background-color: #0d1117;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <article class="markdown-body" id="nviqMdp"></article>
+  <script>
+    const $nviqMdp = document.querySelector("#nviqMdp");
+
+    var socket = null;
+
+    function nviqMdpRenderMathByClass(className, displayMode) {
+      const mathBlocks = $nviqMdp.getElementsByClassName(className);
+      for (let elem of mathBlocks) {
+        katex.render(elem.textContent, elem, {
+          throwOnError: false,
+          displayMode: displayMode
+        });
+      }
+    }
+
+    function nviqMdpRenderMath() {
+      if (typeof katex.render === "function") {
+        nviqMdpRenderMathByClass("math math-inline", false);
+        nviqMdpRenderMathByClass("math math-display", true);
+      }
+    }
+
+    async function nviqMdpRenderMermaid() {
+      if (window.mermaid) {
+        try {
+          await window.mermaid.run({
+            nodes: $nviqMdp.querySelectorAll(".mermaid"),
+          });
+        } catch (err) {
+          console.error("Mermaid render failure:", err);
+        }
+      }
+    }
+
+    function nviqMdpScroll(currentLine) {
+      const elems = $nviqMdp.querySelectorAll("[data-source-line]");
+      let targetElem = null;
+
+      for (let i = 0; i < elems.length; i++) {
+        const line = parseInt(elems[i].getAttribute("data-source-line"));
+        if (line <= currentLine) {
+          targetElem = elems[i];
+        } else {
+          break;
+        }
+      }
+
+      if (targetElem) {
+        const targetScrollTop = targetElem.offsetTop - (window.innerHeight / 2)
+        window.scrollTo({
+            top: targetScrollTop,
+            behavior: "smooth"
+        });
+      }
+    }
+
+    function connect() {
+      const { location } = window;
+
+      const proto = location.protocol.startsWith("https") ? "wss" : "ws";
+      const wsUri = `${proto}://${location.host}/ws`;
+
+      console.log("Connecting...");
+      socket = new WebSocket(wsUri);
+
+      socket.onopen = () => {
+        console.log("Connected");
+        socket.send("update");
+      }
+
+      socket.onmessage = async (event) => {
+        var payload = JSON.parse(event.data);
+        switch (payload.action) {
+          case "Update":
+            $nviqMdp.innerHTML = payload.text;
+            nviqMdpRenderMath()
+            nviqMdpRenderMermaid()
+            break;
+          case "Scroll":
+            nviqMdpScroll(payload.line)
+            break;
+          default:
+            break;
+        }
+      }
+
+      socket.onclose = () => {
+        console.log("Disconnected");
+        socket = null;
+        window.close();
+      }
+    }
+
+    connect();
+  </script>
+</body>
+
+</html>

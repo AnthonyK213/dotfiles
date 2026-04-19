@@ -1,0 +1,13 @@
+[package]
+name = "_stardict"
+version = "0.3.2"
+edition = "2024"
+
+[dependencies]
+thiserror = "2.0.18"
+directories = "6.0.0"
+edit-distance = "2.2.2"
+flate2 = { version = "1.1.9", features = ["zlib-rs"], default-features = false }
+rayon = "1.11.0"
+regex = "1.12.3"
+serde = { version = "1.0.228", features = ["derive"] }
