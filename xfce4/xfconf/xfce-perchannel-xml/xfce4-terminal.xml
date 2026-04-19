@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<channel name="xfce4-terminal" version="1.0">
+  <property name="custom-command" type="string" value="zsh"/>
+  <property name="dropdown-show-borders" type="bool" value="false"/>
+  <property name="font-name" type="string" value="Monospace 13"/>
+  <property name="misc-always-show-tabs" type="bool" value="true"/>
+  <property name="misc-slim-tabs" type="bool" value="true"/>
+  <property name="misc-tab-position" type="string" value="GTK_POS_BOTTOM"/>
+  <property name="run-custom-command" type="bool" value="true"/>
+  <property name="scrolling-bar" type="string" value="TERMINAL_SCROLLBAR_NONE"/>
+  <property name="shortcuts-no-menukey" type="bool" value="true"/>
+  <property name="shortcuts-no-mnemonics" type="bool" value="true"/>
+</channel>

@@ -1,0 +1,5 @@
+emacs/*
+!emacs/
+!emacs/init.el
+
+.DS_Store
