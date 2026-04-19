@@ -41,14 +41,20 @@ function _edit_conf {
   if ! [[ -f $1 ]]; then
     return 0
   fi
+  local sed_cmd
+  if [[ "$(uname)" == "Darwin" ]]; then
+    sed_cmd="-i .bak"
+  else
+    sed_cmd="-i.bak"
+  fi
   if [[ `grep $2 $1 | wc -l` -eq 0 ]]; then
     case $# in
-      2) sed -i .bak $2 $1 ;;
+      2) sed $sed_cmd $2 $1 ;;
       3) echo $3 >> $1     ;;
       *) ;;
     esac
   else
-    sed -i .bak "s~$2~$3~" $1
+    sed $sed_cmd "s~$2~$3~" $1
   fi
 }
 
