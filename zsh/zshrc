@@ -19,16 +19,23 @@ if [[ -f "$HOME/.zshrc.local" ]]; then
   source "$HOME/.zshrc.local"
 fi
 
+# Emacs mode.
+bindkey -e
+
 # Prompt
 ## Load VCS module.
 autoload -Uz vcs_info
-precmd() { vcs_info }
+autoload -Uz add-zsh-hook
+## Basic settings.
+zstyle ':vcs_info:*' enable git
+zstyle ':vcs_info:git:*' check-for-changes true
 ## git:branch
-zstyle ':vcs_info:git:*' formats ' on %F{cyan}git:%b%u%c%f'
-zstyle ':vcs_info:git:*' actionformats ' on %F{cyan}git:%b|%a%u%c%f'
-zstyle ':vcs_info:*' check-for-changes true
+zstyle ':vcs_info:git:*' formats ' %F{white}on%f %F{cyan}git:%b%u%c%f'
+zstyle ':vcs_info:git:*' actionformats ' %F{white}on%f %F{cyan}git:%b|%a%u%c%f'
 zstyle ':vcs_info:git:*' unstagedstr ' %F{red}x%f'
 zstyle ':vcs_info:git:*' stagedstr ' %F{green}o%f'
+## Add hook.
+add-zsh-hook precmd vcs_info
 ## Enable parameter expansion.
 setopt PROMPT_SUBST
 ## 1st line: # user @ host in path on git:branch [time] C:code
@@ -70,7 +77,7 @@ fi
 #   $1 - The file path.
 #   $2 - The pattern to match the line.
 #   $3 - The modified line.
-function _edit_conf {
+_dot_edit_conf() {
   [[ -f $1 ]] || return 0
   local sed_cmd=()
   if [[ "$(uname)" == "Darwin" ]]; then
@@ -91,25 +98,25 @@ function _edit_conf {
 
 # @public
 # Setup proxy.
-function proxy {
+proxy() {
   local _PROXY_URL=http://$DOT_HOST_IP:$DOT_HOST_PORT
   export HTTPS_PROXY="${_PROXY_URL}"
   export HTTP_PROXY="${_PROXY_URL}"
   export ALL_PROXY="${_PROXY_URL}"
   git config --global http.proxy ${_PROXY_URL}
   git config --global https.proxy ${_PROXY_URL}
-  _edit_conf "$HOME/.curlrc" "^proxy=.*" "proxy=${_PROXY_URL}"
+  _dot_edit_conf "$HOME/.curlrc" "^proxy=.*" "proxy=${_PROXY_URL}"
   echo "Set proxy to ${_PROXY_URL}"
 }
 
 # @public
 # Unset proxy.
-function unproxy {
+unproxy() {
   unset HTTPS_PROXY
   unset HTTP_PROXY
   unset ALL_PROXY
   git config --global --unset http.proxy
   git config --global --unset https.proxy
-  _edit_conf $HOME/.curlrc "/^proxy=.*/d"
+  _dot_edit_conf $HOME/.curlrc "/^proxy=.*/d"
   echo "Unset proxy"
 }
