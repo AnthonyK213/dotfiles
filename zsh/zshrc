@@ -4,7 +4,7 @@ export DOT_HOST_IP="127.0.0.1"
 export DOT_HOST_PORT=7890
 
 # WSL
-if [[ "$OSTYPE" == linux* ]] && [[ -f /proc/version ]] && [[ $(grep -i Microsoft /proc/version) ]]; then
+if [[ "$OSTYPE" == linux* ]] && [[ "$(uname -r)" == *microsoft* ]] then
   DOT_HOST_IP=$(ip route | grep default | awk '{print $3}')
 fi
 
@@ -29,12 +29,12 @@ autoload -Uz add-zsh-hook
 ## Basic settings.
 zstyle ':vcs_info:*' enable git
 zstyle ':vcs_info:git:*' check-for-changes true
-## git:branch
-zstyle ':vcs_info:git:*' formats ' %F{white}on%f %F{cyan}git:%b%u%c%f'
-zstyle ':vcs_info:git:*' actionformats ' %F{white}on%f %F{cyan}git:%b|%a%u%c%f'
+## VCS info msg.
+zstyle ':vcs_info:git:*' formats ' %F{white}on%f %F{white}git:%F{cyan}%b%u%c%f'
+zstyle ':vcs_info:git:*' actionformats ' %F{white}on%f %F{white}git:%F{cyan}%b|%a%u%c%f'
 zstyle ':vcs_info:git:*' unstagedstr ' %F{red}x%f'
 zstyle ':vcs_info:git:*' stagedstr ' %F{green}o%f'
-## Add hook.
+## VCS hook.
 add-zsh-hook precmd vcs_info
 ## Enable parameter expansion.
 setopt PROMPT_SUBST
@@ -80,7 +80,7 @@ fi
 _dot_edit_conf() {
   [[ -f $1 ]] || return 0
   local sed_cmd=()
-  if [[ "$(uname)" == "Darwin" ]]; then
+  if [[ "$OSTYPE" == darwin* ]]; then
     sed_cmd=(sed -i .bak)
   else
     sed_cmd=(sed -i.bak)
