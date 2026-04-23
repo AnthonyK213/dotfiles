@@ -1,18 +1,15 @@
 export CC="clang"
-export EDITOR="nvim"
+export EDITOR="vi"
 export DOT_HOST_IP="127.0.0.1"
 export DOT_HOST_PORT=7890
+
+# Alias
+alias cdd="cd $HOME/Desktop/"
 
 # WSL
 if [[ "$OSTYPE" == linux* ]] && [[ "$(uname -r)" == *microsoft* ]] then
   DOT_HOST_IP=$(ip route | grep default | awk '{print $3}')
 fi
-
-# Alias
-alias cd..="cd .."
-alias cdd="cd $HOME/Desktop/"
-alias cls="clear"
-alias vim="nvim"
 
 # Load local file.
 if [[ -f "$HOME/.zshrc.local" ]]; then
@@ -21,6 +18,16 @@ fi
 
 # Emacs mode.
 bindkey -e
+
+# Alias
+alias cd..="cd .."
+alias cls="clear"
+alias ls="ls --color=auto -h"
+alias la="ls --color=auto -lah"
+alias grep="grep --color=auto -n"
+alias fgrep="fgrep --color=auto"
+alias egrep="egrep --color=auto"
+alias diff="diff --color=auto -y"
 
 # Prompt
 ## Load VCS module.

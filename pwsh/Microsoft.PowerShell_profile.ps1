@@ -1,7 +1,3 @@
-# Alias
-Set-Alias exp explorer.exe
-Set-Alias vim nvim.exe
-
 # Load config file.
 if (Test-Path $PSScriptRoot\config.ps1 -PathType Leaf) {
   . $PSScriptRoot\config.ps1
@@ -14,7 +10,8 @@ Set-PSReadlineKeyHandler -Key UpArrow    -Function HistorySearchBackward
 Set-PSReadlineKeyHandler -Key DownArrow  -Function HistorySearchForward
 Set-PSReadlineKeyHandler -Chord "Ctrl+d" -Function DeleteCharOrExit
 
-# Unix-like command
+# Alias
+Set-Alias exp   explorer.exe
 Set-Alias touch New-Item
 Set-Alias grep  findstr
 
