@@ -50,10 +50,23 @@ fn source_to_id(source: Source) -> Option<&'static String> {
         .find_map(|(key, &val)| if val == source { Some(key) } else { None })
 }
 
+/// WORKAROUND: Flushes the system event queue and refreshes the TIS (Text Input Services)
+/// internal cache. This is necessary in non-GUI apps like Neovim because the
+/// process doesn't run the CFRunLoop by default to handle input source notifications.
+fn flush_tis_cache() {
+    unsafe {
+        core_foundation::runloop::CFRunLoop::run_in_mode(
+            core_foundation::runloop::kCFRunLoopDefaultMode,
+            std::time::Duration::from_millis(10),
+            true,
+        );
+    }
+}
+
 pub(crate) fn get_input_source() -> Source {
     unsafe {
-        // FIXME: The input source won't update unless calling
-        // TISSelectInputSource explicitly.
+        flush_tis_cache();
+
         let current_source_ref = TISCopyCurrentKeyboardInputSource();
         if current_source_ref.is_null() {
             return NVIQ_IME_LAYOUT_NONE;
@@ -99,6 +112,7 @@ pub(crate) fn set_input_source(source: Source) {
         let selected = keyboards.get(0);
         if let Some(value) = selected {
             TISSelectInputSource(*value);
+            flush_tis_cache();
         }
     }
 }
