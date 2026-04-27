@@ -58,7 +58,7 @@ fn flush_tis_cache() {
         core_foundation::runloop::CFRunLoop::run_in_mode(
             core_foundation::runloop::kCFRunLoopDefaultMode,
             std::time::Duration::from_millis(10),
-            true,
+            false,
         );
     }
 }

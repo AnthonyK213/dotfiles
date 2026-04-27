@@ -51,11 +51,17 @@ function M.get()
   return Layout.None
 end
 
+--- Debouncing.
+local _timer = vim.uv.new_timer()
+
 ---Sets the current input source.
 ---@param source nviq.appl.ime.Source
 function M.set(source)
-  if init() then
-    _nviq_ime.nviq_ime_set(source)
+  if init() and _timer then
+    _timer:stop()
+    _timer:start(50, 0, vim.schedule_wrap(function()
+      _nviq_ime.nviq_ime_set(source)
+    end))
   end
 end
 
