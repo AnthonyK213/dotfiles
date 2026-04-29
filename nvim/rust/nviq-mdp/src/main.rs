@@ -91,18 +91,21 @@ impl NeovimHandler {
             let payload_string = serde_json::to_string(&payload)?;
             if session.text(payload_string).await.is_err() {
                 *maybe_session = None;
-                return Err(anyhow::anyhow!("Session was closed"));
+                return Err(anyhow::anyhow!("Session closed"));
             }
         }
         Ok(())
     }
 
     pub async fn scroll(&self, line: u32) -> anyhow::Result<()> {
-        let mut session = self.session.lock().await;
-        if let Some(session) = &mut *session {
+        let mut maybe_session = self.session.lock().await;
+        if let Some(session) = &mut *maybe_session {
             let payload = Payload::Scroll { line };
             let payload_string = serde_json::to_string(&payload)?;
-            session.text(payload_string).await?;
+            if session.text(payload_string).await.is_err() {
+                *maybe_session = None;
+                return Err(anyhow::anyhow!("Session closed"));
+            }
         }
         Ok(())
     }
