@@ -63,20 +63,20 @@ end
 local function setup_server(name, spec)
   if type(spec) ~= "table" then return end
 
+  if not vim.lsp.config[name] then return end
+
   ---@type vim.lsp.Config
   local cfg = {}
 
-  if vim.lsp.config[name] then
-    local on_attach = vim.lsp.config[name].on_attach
-    if type(on_attach) == "function" then
-      cfg.on_attach = function(client, bufnr)
-        on_attach(client, bufnr)
-        custom_attach(client, bufnr)
-      end
+  local on_attach = vim.lsp.config[name].on_attach
+  if type(on_attach) == "function" then
+    cfg.on_attach = function(client, bufnr)
+      on_attach(client, bufnr)
+      custom_attach(client, bufnr)
     end
+  else
+    cfg.on_attach = custom_attach
   end
-
-  cfg.on_attach = cfg.on_attach or custom_attach
 
   -- Set custom LSP configurations.
   if type(spec.settings) == "table" then
