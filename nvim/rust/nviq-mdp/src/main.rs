@@ -74,8 +74,8 @@ impl NeovimHandler {
     }
 
     pub async fn update(&self, neovim: &Neovim<<Self as Handler>::Writer>) -> anyhow::Result<()> {
-        let mut session = self.session.lock().await;
-        if let Some(session) = &mut *session {
+        let mut maybe_session = self.session.lock().await;
+        if let Some(session) = &mut *maybe_session {
             let buffer = neovim.get_current_buf().await?;
 
             let buf_root = nvim::buf_get_root(neovim, &buffer).await?;
@@ -89,7 +89,10 @@ impl NeovimHandler {
 
             let payload = Payload::Update { text: md_html };
             let payload_string = serde_json::to_string(&payload)?;
-            session.text(payload_string).await?;
+            if session.text(payload_string).await.is_err() {
+                *maybe_session = None;
+                return Err(anyhow::anyhow!("Session was closed"));
+            }
         }
         Ok(())
     }
@@ -244,7 +247,7 @@ async fn ws_index(
     client: web::Data<NeovimClient>,
 ) -> Result<HttpResponse, Error> {
     let (res, session, mut stream) = actix_ws::handle(&req, stream)?;
-    client.handler.set_session(session.clone()).await;
+    client.handler.set_session(session).await;
 
     actix_web::rt::spawn(async move {
         while let Some(Ok(msg)) = stream.next().await {
