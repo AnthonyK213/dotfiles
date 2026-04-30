@@ -238,7 +238,7 @@ local function goto_word_start_forward()
 
   -- Set to inclusive mode for "dw".
   if lib.get_mode() == lib.Mode.O_Pending and
-      pos_byte ~= 0 and last_word and lnum == old_lnum then
+      last_word and lnum == old_lnum then
     vim.cmd("normal! v")
   end
 
