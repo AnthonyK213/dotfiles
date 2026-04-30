@@ -231,13 +231,14 @@ local function goto_word_start_forward()
   local line = vim.api.nvim_get_current_line()
 
   if #line > 0 then pos_byte = word_end(pos_byte, line) end
+  local last_word = pos_at_end_of_line(line, pos_byte)
+  local old_lnum = lnum
   lnum, pos_byte, line = next_char_pos(lnum, pos_byte, line)
   lnum, pos_byte, line = next_non_space_char_pos(lnum, pos_byte, line, true)
 
   -- Set to inclusive mode for "dw".
   if lib.get_mode() == lib.Mode.O_Pending and
-      pos_byte ~= 0 and
-      pos_at_end_of_line(line, pos_byte) then
+      pos_byte ~= 0 and last_word and lnum == old_lnum then
     vim.cmd("normal! v")
   end
 
