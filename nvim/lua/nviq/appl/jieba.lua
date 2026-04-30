@@ -104,13 +104,21 @@ local function word_end(pos_byte, line)
   return vim.str_byteindex(line, encoding, e_char)
 end
 
+---Returns whether the pos_byte is at the end of the line.
+---@param line string The line.
+---@param pos_byte integer Position in line of bytes (0-based)
+---@return boolean
+local function pos_at_end_of_line(line, pos_byte)
+  return pos_byte >= #line - #sutil.sub(line, -1, -1)
+end
+
 ---Finds the position of the previous character.
 ---@param lnum integer Line number (1-based)
 ---@param pos_byte integer Position in line of bytes (0-based)
 ---@param line string Current line
----@return integer New line number (1-based)
----@return integer New position in line of bytes (0-based)
----@return string New line
+---@return integer new_lnum New line number (1-based)
+---@return integer new_pos_byte New position in line of bytes (0-based)
+---@return string new_line New line
 local function prev_char_pos(lnum, pos_byte, line)
   if pos_byte == 0 then
     if lnum == 1 then
@@ -132,11 +140,11 @@ end
 ---@param lnum integer Line number (1-based)
 ---@param pos_byte integer Position in line of bytes (0-based)
 ---@param line string Current line
----@return integer New line number (1-based)
----@return integer New position in line of bytes (0-based)
----@return string New line
+---@return integer new_lnum New line number (1-based)
+---@return integer new_pos_byte New position in line of bytes (0-based)
+---@return string new_line New line
 local function next_char_pos(lnum, pos_byte, line)
-  if pos_byte >= #line - #sutil.sub(line, -1, -1) then
+  if pos_at_end_of_line(line, pos_byte) then
     if lnum == vim.api.nvim_buf_line_count(0) then
       return lnum, pos_byte, line
     end
@@ -153,14 +161,15 @@ end
 local _s_spc_pat = vim.regex([=[\v^(\s|　)+]=])
 local _e_spc_pat = vim.regex([=[\v(\s|　)+$]=])
 
----Finds the position of the first non-space character (backward).
+---Finds the position of the first non-space character (backward, exclusive).
 ---@param lnum integer Line number (1-based)
 ---@param pos_byte integer Position in line of bytes (0-based)
 ---@param line string Current line
+---@param stop_at_empty_line boolean Whether to stop at empty line
 ---@return integer New line number (1-based)
 ---@return integer New position in line of bytes (0-based)
 ---@return string New line
-local function prev_non_space_char_pos(lnum, pos_byte, line)
+local function prev_non_space_char_pos(lnum, pos_byte, line, stop_at_empty_line)
   while true do
     if pos_byte > 0 then
       local s_, e_ = _e_spc_pat:match_line(0, lnum - 1, 0, pos_byte)
@@ -178,17 +187,21 @@ local function prev_non_space_char_pos(lnum, pos_byte, line)
     lnum = lnum - 1
     line = vim.api.nvim_buf_get_lines(0, lnum - 1, lnum, false)[1]
     pos_byte = #line
+    if stop_at_empty_line and pos_byte == 0 and #line == 0 then
+      return lnum, pos_byte, line
+    end
   end
 end
 
----Finds the position of the first non-space character (forward).
+---Finds the position of the first non-space character (forward, inclusive).
 ---@param lnum integer Line number (1-based)
 ---@param pos_byte integer Position in line of bytes (0-based)
 ---@param line string Current line
+---@param stop_at_empty_line boolean Whether to stop at empty line
 ---@return integer New line number (1-based)
 ---@return integer New position in line of bytes (0-based)
 ---@return string New line
-local function next_non_space_char_pos(lnum, pos_byte, line)
+local function next_non_space_char_pos(lnum, pos_byte, line, stop_at_empty_line)
   local lcnt = vim.api.nvim_buf_line_count(0)
   while true do
     if pos_byte < #line then
@@ -200,6 +213,8 @@ local function next_non_space_char_pos(lnum, pos_byte, line)
       if pos_byte < #line then
         return lnum, pos_byte, line
       end
+    elseif stop_at_empty_line and pos_byte == 0 then
+      return lnum, pos_byte, line
     end
     if lnum == lcnt then
       return lnum, pos_byte, line
@@ -210,37 +225,49 @@ local function next_non_space_char_pos(lnum, pos_byte, line)
   end
 end
 
----Words forward.
-local function goto_words_forward()
+---
+local function goto_word_start_forward()
   local lnum, pos_byte = unpack(vim.api.nvim_win_get_cursor(0))
   local line = vim.api.nvim_get_current_line()
 
   if #line > 0 then pos_byte = word_end(pos_byte, line) end
   lnum, pos_byte, line = next_char_pos(lnum, pos_byte, line)
-  lnum, pos_byte, line = next_non_space_char_pos(lnum, pos_byte, line)
+  lnum, pos_byte, line = next_non_space_char_pos(lnum, pos_byte, line, true)
+
+  -- Set to inclusive mode for "dw".
+  if lib.get_mode() == lib.Mode.O_Pending and
+      pos_byte ~= 0 and
+      pos_at_end_of_line(line, pos_byte) then
+    vim.cmd("normal! v")
+  end
 
   vim.api.nvim_win_set_cursor(0, { lnum, pos_byte })
 end
 
----Words backward.
-local function goto_words_backward()
+---
+local function goto_word_start_backward()
   local lnum, pos_byte = unpack(vim.api.nvim_win_get_cursor(0))
   local line = vim.api.nvim_get_current_line()
 
-  lnum, pos_byte, line = prev_non_space_char_pos(lnum, pos_byte, line)
+  lnum, pos_byte, line = prev_non_space_char_pos(lnum, pos_byte, line, true)
   if #line > 0 then pos_byte = word_start(pos_byte, line) end
 
   vim.api.nvim_win_set_cursor(0, { lnum, pos_byte })
 end
 
----Forward to the end of word inclusive.
-local function goto_forward_word_end()
+---
+local function goto_word_end_forward()
   local lnum, pos_byte = unpack(vim.api.nvim_win_get_cursor(0))
   local line = vim.api.nvim_get_current_line()
 
   lnum, pos_byte, line = next_char_pos(lnum, pos_byte, line)
-  lnum, pos_byte, line = next_non_space_char_pos(lnum, pos_byte, line)
+  lnum, pos_byte, line = next_non_space_char_pos(lnum, pos_byte, line, false)
   if #line > 0 then pos_byte = word_end(pos_byte, line) end
+
+  -- Set to inclusive mode for "de".
+  if lib.get_mode() == lib.Mode.O_Pending then
+    vim.cmd("normal! v")
+  end
 
   vim.api.nvim_win_set_cursor(0, { lnum, pos_byte })
 end
@@ -284,9 +311,9 @@ function M:enable()
   _get_word_bak = NVIQ.handlers.get_word
   NVIQ.handlers.get_word = M.get_word
 
-  vim.keymap.set({ "n", "x", "o" }, "w", goto_words_forward, {})
-  vim.keymap.set({ "n", "x", "o" }, "b", goto_words_backward, {})
-  vim.keymap.set({ "n", "x", "o" }, "e", goto_forward_word_end, {})
+  vim.keymap.set({ "n", "x", "o" }, "w", goto_word_start_forward, {})
+  vim.keymap.set({ "n", "x", "o" }, "b", goto_word_start_backward, {})
+  vim.keymap.set({ "n", "x", "o" }, "e", goto_word_end_forward, {})
   vim.keymap.set({ "x", "o" }, "iw", select_inner_word, {})
 
   self.enabled = true
