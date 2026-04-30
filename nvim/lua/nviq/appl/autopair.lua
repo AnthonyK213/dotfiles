@@ -303,7 +303,8 @@ local function action_supbs()
   elseif back:match("{%s*$") and fore:match("^%s*}") then
     feed_keys [[<C-\><C-O>"_diB]]
   else
-    feed_keys [[<C-\><C-O>"_db]]
+    -- Remap here since "omap b" might be redefined.
+    kutil.feedkeys([[<C-\><C-O>"_db]], "im")
   end
 end
 
