@@ -23,14 +23,17 @@ vim.keymap.set("c", "<M-BS>", "<C-W>", {
 })
 
 vim.keymap.set("i", "<M-b>", "<C-\\><C-O>b", {
+  remap = true,
   desc = "Move cursor by one word to the left"
 })
 
 vim.keymap.set("i", "<M-f>", "<C-\\><C-O>e<Right>", {
+  remap = true,
   desc = "Move cursor by one word to the right"
 })
 
 vim.keymap.set("i", "<M-d>", "<C-\\><C-O>dw", {
+  remap = true,
   desc = "Kill text until the end of the word"
 })
 
