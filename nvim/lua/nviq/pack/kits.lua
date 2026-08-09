@@ -147,7 +147,7 @@ packer.add {
     deps = {
       "https://github.com/nvim-lua/plenary.nvim",
       "https://github.com/nvim-telescope/telescope-ui-select.nvim",
-      "https://github.com/debugloop/telescope-undo.nvim",
+      -- "https://github.com/debugloop/telescope-undo.nvim",
     },
     conf = function()
       local border_sources = {
@@ -201,7 +201,7 @@ packer.add {
               }
             }
           },
-          undo = {},
+          -- undo = {},
         }
       }
 
@@ -228,7 +228,7 @@ packer.add {
 
       require("telescope").load_extension("aerial")
       require("telescope").load_extension("ui-select")
-      require("telescope").load_extension("undo")
+      -- require("telescope").load_extension("undo")
     end,
     keymap = {
       { mode = "n", lhs = "<leader>fb", rhs = function()
@@ -240,9 +240,9 @@ packer.add {
       { mode = "n", lhs = "<leader>fg", rhs = function()
         require("telescope.builtin").live_grep()
       end, desc = "Live grep" },
-      { mode = "n", lhs = "<leader>fu", rhs = function()
-        require("telescope").extensions.undo.undo()
-      end, desc = "Undo tree" },
+      -- { mode = "n", lhs = "<leader>fu", rhs = function()
+      --   require("telescope").extensions.undo.undo()
+      -- end, desc = "Undo tree" },
     }
   }
 }

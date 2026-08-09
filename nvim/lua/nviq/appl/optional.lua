@@ -229,3 +229,12 @@ end, {
   complete = function() return { "stable", "nightly" } end,
   desc = "Upgrade Neovim by channel"
 })
+
+-- Undotree
+
+vim.keymap.set("n", "<leader>fu", function()
+  if not vim.g.loaded_undotree_plugin then
+    vim.cmd.packadd("nvim.undotree")
+  end
+  require("undotree").open()
+end)
