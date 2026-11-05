@@ -1,44 +1,56 @@
 ---@class nviq.futures.JoinHandle
 ---@field private m_co thread
+---@field private m_waiter? thread
 local JoinHandle = {}
 
 ---@private
 JoinHandle.__index = JoinHandle
 
 ---Constructor.
----@param co thread
+---@param action function
 ---@return nviq.futures.JoinHandle
-function JoinHandle.new(co)
-  local handle = {
-    m_co = co,
-  }
+function JoinHandle.new(action)
+  local handle = {}
   setmetatable(handle, JoinHandle)
+
+  handle.m_co = coroutine.create(function()
+    action()
+    local waiter = handle.m_waiter
+    if waiter then
+      handle.m_waiter = nil
+      vim.schedule(function()
+        assert(coroutine.resume(waiter))
+      end)
+    end
+  end)
+
+  coroutine.resume(handle.m_co)
+
   return handle
 end
 
 ---Wait for the associated thread to finish.
 function JoinHandle:join()
-  if not coroutine.running() then
-    vim.wait(1e8, function()
-      return coroutine.status(self.m_co) == "dead"
-    end)
-    self.m_co = nil
-  else
-    self:await()
+  if coroutine.running() then
+    return self:await()
   end
+
+  vim.wait(1e8, function()
+    return coroutine.status(self.m_co) == "dead"
+  end)
 end
 
----@private
 ---Await the spawned task.
 function JoinHandle:await()
-  if not coroutine.running() then
-    print("Not in any asynchronous block")
-    return
+  local co_cur = coroutine.running()
+  if not co_cur then
+    error("JoinHandle must await in an asynchronous block.")
   end
-  while coroutine.status(self.m_co) ~= "dead" do
+
+  if coroutine.status(self.m_co) ~= "dead" then
+    self.m_waiter = co_cur
     coroutine.yield()
   end
-  self.m_co = nil
 end
 
 return JoinHandle

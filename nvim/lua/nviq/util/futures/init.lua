@@ -24,38 +24,16 @@ function M.spawn(task)
   ---@type function
   local func
   local task_type = type(task)
-  local co_cur = coroutine.running()
 
   if task_type == "function" then
-    if co_cur then
-      func = function()
-        task()
-        vim.uv.new_async(function()
-          coroutine.resume(co_cur)
-        end):send()
-      end
-    else
-      func = task
-    end
+    func = task
   elseif getmetatable(task) == Future then
-    if co_cur then
-      func = function()
-        task:poll()
-        vim.uv.new_async(function()
-          coroutine.resume(co_cur)
-        end):send()
-      end
-    else
-      func = function() task:poll() end
-    end
+    func = function() task:poll() end
   else
     error("`task` is invalid.")
   end
 
-  local co_new = coroutine.create(func)
-  coroutine.resume(co_new)
-
-  return JoinHandle.new(co_new)
+  return JoinHandle.new(func)
 end
 
 M.Job = require("nviq.util.futures.job")
