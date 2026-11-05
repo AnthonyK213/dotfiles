@@ -8,10 +8,10 @@ local async = vim.async
 ---@class nviq.util.a
 local M = {
   task = {},
-  ui = {},
   process = {},
   job = {},
   terminal = {},
+  ui = {},
   uv = {},
 }
 
@@ -229,61 +229,6 @@ function Process.new(cmd, opts, on_exit, signal, force_signal, grace)
   return process
 end
 
----Starts a top-level task and reports an unobserved error.
----Only use this at a synchronous entry point. Use `vim.async.run()` for an
----attached child task inside an asynchronous context.
----@param ... any See `vim.async.run()`.
----@return vim.async.Task
-function M.task.start(...)
-  return async.run(...):raise_on_error()
-end
-
----Prompts the user for input.
----@async
----@param opts vim.ui.input.Opts
----@return string? input
-function M.ui.input(opts)
-  return async.await(2, vim.ui.input, opts)
-end
-
----Prompts the user to select an item.
----@async
----@generic T
----@param items T[]
----@param opts vim.ui.select.Opts
----@return T? item
----@return integer? index
-function M.ui.select(items, opts)
-  return async.await(3, vim.ui.select, items, opts)
-end
-
----Starts a long-lived process and returns its resource handle immediately.
----The caller owns the handle and must terminate it when its buffer or module
----session ends. Call `process:wait()` when task cancellation should own it.
----@param cmd string[]
----@param opts? vim.SystemOpts
----@param on_exit? fun(process: nviq.util.a.Process, result: vim.SystemCompleted)
----@param cancel_opts? nviq.util.a.process.CancelOpts
----@return nviq.util.a.Process process
-function M.process.start(cmd, opts, on_exit, cancel_opts)
-  local signal, force_signal, grace = resolve_cancel_opts(cancel_opts)
-  return Process.new(cmd, opts, on_exit, signal, force_signal, grace)
-end
-
----Runs an owned process and waits for it to exit.
----
----Closing the current task sends a termination signal to the process and waits
----for `vim.system()` to finish draining and closing its pipes. If the process
----does not exit during the grace period, it is sent the force signal.
----@async
----@param cmd string[]
----@param opts? vim.SystemOpts
----@param cancel_opts? nviq.util.a.process.CancelOpts
----@return vim.SystemCompleted result
-function M.process.run(cmd, opts, cancel_opts)
-  return M.process.start(cmd, opts, nil, cancel_opts):wait()
-end
-
 ---@class nviq.util.a.JobResult
 ---@field id integer
 ---@field code integer
@@ -477,23 +422,6 @@ function Job.new(cmd, options, class)
   return job
 end
 
----Starts a channel, PTY, or RPC job and returns its handle immediately.
----@param cmd string[]
----@param opts? table See `jobstart-options`.
----@return nviq.util.a.Job job
-function M.job.start(cmd, opts)
-  return Job.new(cmd, opts)
-end
-
----Starts an owned job and waits for it to exit.
----@async
----@param cmd string[]
----@param opts? table See `jobstart-options`.
----@return nviq.util.a.JobResult result
-function M.job.run(cmd, opts)
-  return M.job.start(cmd, opts):wait()
-end
-
 ---@class nviq.util.a.Terminal : nviq.util.a.Job
 ---@field private m_bufnr integer
 local Terminal = {}
@@ -550,6 +478,59 @@ function Terminal.new(cmd, options)
   return terminal
 end
 
+---Starts a top-level task and reports an unobserved error.
+---Only use this at a synchronous entry point. Use `vim.async.run()` for an
+---attached child task inside an asynchronous context.
+---@param ... any See `vim.async.run()`.
+---@return vim.async.Task
+function M.task.start(...)
+  return async.run(...):raise_on_error()
+end
+
+---Starts a long-lived process and returns its resource handle immediately.
+---The caller owns the handle and must terminate it when its buffer or module
+---session ends. Call `process:wait()` when task cancellation should own it.
+---@param cmd string[]
+---@param opts? vim.SystemOpts
+---@param on_exit? fun(process: nviq.util.a.Process, result: vim.SystemCompleted)
+---@param cancel_opts? nviq.util.a.process.CancelOpts
+---@return nviq.util.a.Process process
+function M.process.start(cmd, opts, on_exit, cancel_opts)
+  local signal, force_signal, grace = resolve_cancel_opts(cancel_opts)
+  return Process.new(cmd, opts, on_exit, signal, force_signal, grace)
+end
+
+---Runs an owned process and waits for it to exit.
+---
+---Closing the current task sends a termination signal to the process and waits
+---for `vim.system()` to finish draining and closing its pipes. If the process
+---does not exit during the grace period, it is sent the force signal.
+---@async
+---@param cmd string[]
+---@param opts? vim.SystemOpts
+---@param cancel_opts? nviq.util.a.process.CancelOpts
+---@return vim.SystemCompleted result
+function M.process.run(cmd, opts, cancel_opts)
+  return M.process.start(cmd, opts, nil, cancel_opts):wait()
+end
+
+---Starts a channel, PTY, or RPC job and returns its handle immediately.
+---@param cmd string[]
+---@param opts? table See `jobstart-options`.
+---@return nviq.util.a.Job job
+function M.job.start(cmd, opts)
+  return Job.new(cmd, opts)
+end
+
+---Starts an owned job and waits for it to exit.
+---@async
+---@param cmd string[]
+---@param opts? table See `jobstart-options`.
+---@return nviq.util.a.JobResult result
+function M.job.run(cmd, opts)
+  return M.job.start(cmd, opts):wait()
+end
+
 ---Starts a terminal job in a new buffer in the current window.
 ---@param cmd string[]
 ---@param opts? table See `jobstart-options`.
@@ -565,6 +546,25 @@ end
 ---@return nviq.util.a.JobResult result
 function M.terminal.run(cmd, opts)
   return M.terminal.start(cmd, opts):wait()
+end
+
+---Prompts the user for input.
+---@async
+---@param opts vim.ui.input.Opts
+---@return string? input
+function M.ui.input(opts)
+  return async.await(2, vim.ui.input, opts)
+end
+
+---Prompts the user to select an item.
+---@async
+---@generic T
+---@param items T[]
+---@param opts vim.ui.select.Opts
+---@return T? item
+---@return integer? index
+function M.ui.select(items, opts)
+  return async.await(3, vim.ui.select, items, opts)
 end
 
 ---Creates a directory asynchronously.
