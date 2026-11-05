@@ -566,14 +566,28 @@ function M.ui.select(items, opts)
   return async.await(3, vim.ui.select, items, opts)
 end
 
----Creates a directory asynchronously.
----@async
----@param path string
----@param mode integer
----@return string? err
----@return boolean? ok
-function M.uv.fs_mkdir(path, mode)
-  return async.await(3, vim.uv.fs_mkdir, path, mode)
-end
+local uv_callback_index = {
+  fs_opendir = 2,
+}
+
+---Lazily converts a callback-style `vim.uv` function into an async function.
+---The returned values are the callback arguments, not the synchronous return
+---values of the underlying function.
+setmetatable(M.uv, {
+  __index = function(tbl, name)
+    local obj = vim.uv[name]
+    if not vim.is_callable(obj) then
+      rawset(tbl, name, obj)
+      return obj
+    end
+
+    local wrapped = function(...)
+      local callback_index = uv_callback_index[name] or select("#", ...) + 1
+      return async.await(callback_index, obj, ...)
+    end
+    rawset(tbl, name, wrapped)
+    return wrapped
+  end,
+})
 
 return M
