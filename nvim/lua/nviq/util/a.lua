@@ -1,8 +1,5 @@
----Adapters for `vim.async` callback boundaries and owned resources.
----
----Do not call `nviq.util.futures.*:await()` inside a `vim.async` task, and do
----not call `vim.async.await()` inside `futures.spawn()`. Complete call chains
----must use one coroutine scheduler.
+-- Adapters for `vim.async` callback boundaries and owned resources.
+
 local async = vim.async
 
 ---@class nviq.util.a
