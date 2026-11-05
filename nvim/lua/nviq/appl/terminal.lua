@@ -1,4 +1,5 @@
 local lib = require("nviq.util.lib")
+local autil = require("nviq.util.a")
 local futures = require("nviq.util.futures")
 
 local M = {}
@@ -149,7 +150,7 @@ function M.toggle()
     local bufnr = next(_term_table)
     toggle_terminal(find_or_new_window(), bufnr)
   else
-    futures.spawn(function()
+    autil.task.start("terminal.select", function()
       local term_bufs = vim.tbl_keys(_term_table) ---@type integer[]
       local winid = find_window()
       -- If there is already an active terminal, move it to the top of the
@@ -161,7 +162,7 @@ function M.toggle()
           term_bufs[1], term_bufs[index] = term_bufs[index], term_bufs[1]
         end
       end
-      local bufnr = futures.ui.select(term_bufs, {
+      local bufnr = autil.ui.select(term_bufs, {
         prompt = "Select a terminal: ",
         format_item = function(item)
           local term = _term_table[item]

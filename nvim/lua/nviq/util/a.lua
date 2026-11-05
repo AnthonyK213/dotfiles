@@ -167,4 +167,14 @@ function M.process.run(cmd, opts, cancel_opts)
   end)
 end
 
+---Creates a directory asynchronously.
+---@async
+---@param path string
+---@param mode integer
+---@return string? err
+---@return boolean? ok
+function M.uv.fs_mkdir(path, mode)
+  return async.await(3, vim.uv.fs_mkdir, path, mode)
+end
+
 return M

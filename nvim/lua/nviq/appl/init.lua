@@ -1,5 +1,7 @@
 local _augroup = vim.api.nvim_create_augroup("nviq.appl", { clear = true })
 
+local autil = require("nviq.util.a")
+
 -- Emacs
 
 require("nviq.appl.emacs")
@@ -121,9 +123,8 @@ vim.keymap.set({ "n", "x" }, "<leader>sa", function()
   if not vim.bo.modifiable then return end
   local mode = require("nviq.util.lib").get_mode()
   require("nviq.util.k").to_normal()
-  local futures = require("nviq.util.futures")
-  futures.spawn(function()
-    local left = futures.ui.input { prompt = "Insert surrounding: " }
+  autil.task.start("surround.insert", function()
+    local left = autil.ui.input { prompt = "Insert surrounding: " }
     if not left then return end
     require("nviq.appl.surround").insert(mode, left, _G.NVIQ.handlers.get_word)
   end)
@@ -131,9 +132,8 @@ end, { desc = "Insert surrounding" })
 
 vim.keymap.set("n", "<leader>sd", function()
   if not vim.bo.modifiable then return end
-  local futures = require("nviq.util.futures")
-  futures.spawn(function()
-    local left = futures.ui.input { prompt = "Delete surrounding: " }
+  autil.task.start("surround.delete", function()
+    local left = autil.ui.input { prompt = "Delete surrounding: " }
     if not left then return end
     require("nviq.appl.surround").delete(left)
   end)
@@ -141,11 +141,10 @@ end, { desc = "Delete surrounding" })
 
 vim.keymap.set("n", "<leader>sc", function()
   if not vim.bo.modifiable then return end
-  local futures = require("nviq.util.futures")
-  futures.spawn(function()
-    local old = futures.ui.input { prompt = "Change surrounding: " }
+  autil.task.start("surround.change", function()
+    local old = autil.ui.input { prompt = "Change surrounding: " }
     if not old then return end
-    local new = futures.ui.input { prompt = "New surrounding: " }
+    local new = autil.ui.input { prompt = "New surrounding: " }
     if not new then return end
     require("nviq.appl.surround").change(old, new)
   end)

@@ -1,5 +1,6 @@
 local lib = require("nviq.util.lib")
 local futil = require("nviq.util.f")
+local autil = require("nviq.util.a")
 local futures = require("nviq.util.futures")
 
 local M = {}
@@ -65,18 +66,18 @@ function M.blame_line()
   local file = vim.api.nvim_buf_get_name(0)
   local cwd = lib.buf_dir(0)
   local range = string.format("%d,%d", lnum, lnum)
-  local blame = futures.Process.new("git", {
-    args = { "blame", "--line-porcelain", "-L", range, file },
-    cwd = cwd,
-  })
-  blame:set_record(true)
-  futures.spawn(function()
-    local code = blame:await()
-    if code ~= 0 or vim.tbl_isempty(blame:stdout_buf()) then
+  autil.task.start("git.blame_line", function()
+    local result = autil.process.run({
+      "git", "blame", "--line-porcelain", "-L", range, file,
+    }, {
+      cwd = cwd,
+      text = true,
+    })
+    if result.code ~= 0 or not result.stdout or result.stdout:len() == 0 then
       vim.notify("No one to blame...")
       return
     end
-    local blame_info = parse_blame_info(blame:stdout_buf()[1])
+    local blame_info = parse_blame_info(result.stdout)
     if blame_info then
       local hash = blame_info["hash"]
       if hash:match("^0+$") then
@@ -100,23 +101,22 @@ function M.commit()
     return
   end
 
-  futures.spawn(function()
-    local message = futures.ui.input { prompt = "Commit message: " }
+  autil.task.start("git.commit", function()
+    local message = autil.ui.input { prompt = "Commit message: " }
     if not message then
       lib.warn("Canceled")
       return
     end
 
-    local commit = futures.Process.new("git", {
-      args = { "commit", "-m", message },
+    local result = autil.process.run({ "git", "commit", "-m", message }, {
       cwd = root,
+      text = true,
     })
-    commit:set_record(true)
 
-    if commit:await() == 0 then
-      vim.notify(table.concat(commit:stdout_buf(), "\n"))
+    if result.code == 0 then
+      vim.notify(result.stdout or "")
     else
-      commit:notify_err()
+      lib.warn(result.stderr or "Git commit failed")
     end
   end)
 end

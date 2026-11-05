@@ -1,4 +1,5 @@
 local lib = require("nviq.util.lib")
+local autil = require("nviq.util.a")
 local futures = require("nviq.util.futures")
 
 local _comp_list = {
@@ -110,8 +111,8 @@ function M.input(bufnr)
     return
   end
 
-  futures.spawn(function()
-    local data = futures.ui.input { prompt = "glslViewer > " }
+  autil.task.start("glsl.input", function()
+    local data = autil.ui.input { prompt = "glslViewer > " }
     if not data or #data == 0 then return end
     vim.notify("// > " .. data)
     M.tbl[bufnr]:write(data .. "\n")

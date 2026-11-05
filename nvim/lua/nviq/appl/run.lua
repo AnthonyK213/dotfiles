@@ -1,5 +1,6 @@
 local lib = require("nviq.util.lib")
 local futil = require("nviq.util.f")
+local autil = require("nviq.util.a")
 local futures = require("nviq.util.futures")
 
 local M = {}
@@ -183,15 +184,20 @@ function M.task_run(task, args)
 
   if task.product then
     if not args.prod_name then return end
-    local build = futures.Process.new(cmd, {
-      args = cmd_args,
-      cwd = args.file_dir,
-    })
-    build:set_record(true)
-    futures.spawn(function()
-      local code = build:await()
+    autil.task.start("run.build", function()
+      local result = autil.process.run(vim.list_extend({ cmd }, cmd_args), {
+        cwd = args.file_dir,
+        text = true,
+      })
       local prod_path = vim.fs.joinpath(args.file_dir, args.prod_name)
-      if code == 0 then
+
+      local function clean_product()
+        if futil.is_file(prod_path) then
+          vim.fs.rm(prod_path)
+        end
+      end
+
+      if result.code == 0 then
         local run
         if lib.has_win() then
           -- Handle negative return value on Windows.
@@ -204,14 +210,15 @@ function M.task_run(task, args)
           run = term_new({ prod_path }, { cwd = args.file_dir })
         end
         if run then
-          run:await()
+          run:continue_with(clean_product)
+          if run:start() then
+            return
+          end
         end
       else
-        build:notify_err()
+        lib.warn(result.stderr or "Build failed")
       end
-      if futil.is_file(prod_path) then
-        vim.fs.rm(prod_path)
-      end
+      clean_product()
     end)
     return
   end

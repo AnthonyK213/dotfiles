@@ -1,6 +1,6 @@
 local lib = require("nviq.util.lib")
 local rsmod = require("nviq.appl.rsmod")
-local futures = require("nviq.util.futures")
+local autil = require("nviq.util.a")
 
 local _source_table = {
   Windows = {
@@ -77,31 +77,24 @@ local function fetch_version(channel, proxy)
   end
 
   local target = [[content="NVIM ]]
-  local version = nil
-
-  local fetch_tag_page = futures.Process.new(CURL_CMD, { args = args })
-  fetch_tag_page:on_stdout(function(_, data)
-    if version then
-      return
-    end
-    local _, e = data:find(target, 1, true)
-    if not e then
-      return
-    end
-    local ver_str = data:match("v([%d%l%+%-%.]+)\n", e)
-    if not ver_str then
-      return
-    end
-    version = vim.version.parse(ver_str)
-  end)
-
-  -- fetch_tag_page:set_record(true)
-  if fetch_tag_page:await() ~= 0 then
-    fetch_tag_page:notify_err()
+  local result = autil.process.run(vim.list_extend({ CURL_CMD }, args), {
+    text = true,
+  })
+  if result.code ~= 0 then
+    lib.warn(result.stderr or "Failed to fetch release information")
     return
   end
 
-  return version
+  local data = result.stdout or ""
+  local _, e = data:find(target, 1, true)
+  if not e then
+    return
+  end
+  local ver_str = data:match("v([%d%l%+%-%.]+)", e)
+  if not ver_str then
+    return
+  end
+  return vim.version.parse(ver_str)
 end
 
 ---Checks whether Neovim could be upgarde.
@@ -185,10 +178,11 @@ local function download(source_url, download_path, proxy)
     table.insert(args, proxy)
   end
 
-  local download_proc = futures.Process.new(CURL_CMD, { args = args })
-
-  if download_proc:await() ~= 0 then
-    download_proc:notify_err()
+  local result = autil.process.run(vim.list_extend({ CURL_CMD }, args), {
+    text = true,
+  })
+  if result.code ~= 0 then
+    lib.warn(result.stderr or "Download failed")
     return false
   end
 
@@ -230,14 +224,14 @@ function M.nvim_upgrade(channel)
 
   local proxy = get_proxy()
 
-  futures.spawn(function()
+  autil.task.start("upgrade.nvim", function()
     local new_ver = check_update(channel, proxy)
     if not new_ver then
       idle()
       return
     end
 
-    local yes_no = futures.ui.input {
+    local yes_no = autil.ui.input {
       prompt = "Upgrade to " .. tostring(new_ver) .. "? [Y/n] "
     }
     if not yes_no or yes_no:lower() ~= "y" then
@@ -268,9 +262,9 @@ function M.nvim_upgrade(channel)
     local download_path = vim.fs.joinpath(backup_dir, source_name)
 
     if vim.fn.isdirectory(backup_dir) == 0 then
-      local err, ok = futures.uv.fs_mkdir(backup_dir, 448)
+      local err, ok = autil.uv.fs_mkdir(backup_dir, 448)
       if not ok then
-        lib.warn(err)
+        lib.warn(err or "Failed to create the download directory")
         idle()
         return
       end
