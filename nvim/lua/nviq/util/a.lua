@@ -118,15 +118,17 @@ function Process:wait()
 
     table.insert(self.m_waiters, done)
 
+    local closing = false
     ---The public handle reports the underlying process state. This private
     ---closable only reports adapter cleanup so cancellation cannot skip pipe
     ---draining when the process handle is already closing.
     ---@type vim.async.Closable
     local closable = {
       is_closing = function()
-        return self.m_closing or self.m_result ~= nil
+        return closing or self.m_result ~= nil
       end,
       close = function(_, callback)
+        closing = true
         self:close(callback)
       end,
     }
