@@ -1,10 +1,9 @@
 local lib = require("nviq.util.lib")
 local autil = require("nviq.util.a")
-local futures = require("nviq.util.futures")
 
 local M = {}
 
----@type table<integer, nviq.futures.Terminal>
+---@type table<integer, nviq.util.a.Terminal>
 local _term_table = {}
 
 ---
@@ -77,7 +76,7 @@ local function clean_up()
   for bufnr, term in pairs(_term_table) do
     if not vim.api.nvim_buf_is_loaded(bufnr) or
         not term or
-        term:has_exited() then
+        term:is_closing() then
       _term_table[bufnr] = nil
     end
   end
@@ -100,17 +99,23 @@ local function new_terminal()
     return
   end
 
-  ---@type nviq.futures.Terminal
+  ---@type nviq.util.a.Terminal?
   local term
-  local ok = false
-  vim.api.nvim_win_call(winid, function()
-    term = futures.Terminal.new(cmd)
-    ok = term:start()
+  local ok, err = pcall(vim.api.nvim_win_call, winid, function()
+    term = autil.terminal.start(cmd, {
+      on_exit = function()
+        if term and _term_table[term:bufnr()] == term then
+          _term_table[term:bufnr()] = nil
+        end
+      end,
+    })
   end)
 
-  if ok then
+  if ok and term then
     _term_table[term:bufnr()] = term
     focus_and_start_insert(winid)
+  elseif not ok then
+    lib.warn(tostring(err))
   end
 end
 

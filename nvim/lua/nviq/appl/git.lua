@@ -1,7 +1,6 @@
 local lib = require("nviq.util.lib")
 local futil = require("nviq.util.f")
 local autil = require("nviq.util.a")
-local futures = require("nviq.util.futures")
 
 local M = {}
 
@@ -121,92 +120,147 @@ function M.commit()
   end)
 end
 
----
----@param job nviq.futures.Job
+---@param job_id integer
 ---@param data string
-local function prompt_default(job, data)
+local function prompt_default(job_id, data)
   local prompt = data:gsub("[\r\n]", "")
   local user_input = vim.fn.input { prompt = prompt }
-  pcall(job.send, job, user_input .. "\n")
+  pcall(vim.fn.chansend, job_id, user_input .. "\n")
 end
 
----
----@param job nviq.futures.Job
+---@param job_id integer
 ---@param data string
-local function prompt_secret(job, data)
+local function prompt_secret(job_id, data)
   vim.fn.inputsave()
   local prompt = data:gsub("[\r\n]", "")
   local user_input = vim.fn.inputsecret(prompt)
   vim.fn.inputrestore()
-  pcall(job.send, job, user_input .. "\n")
+  pcall(vim.fn.chansend, job_id, user_input .. "\n")
 end
 
----
----@param job nviq.futures.Job
----@param data string[]
-local function on_pty_stdout(job, data)
-  if #data == 1 and data[1] == "" then return --[[EOF]] end
-  for _, d in ipairs(data --[=[@as string[]]=]) do
-    local raw_data = d:gsub("\27%[[%d;?]*[FGHJKhlm]", "")
-    if raw_data:match("^Username for ") then
-      prompt_default(job, raw_data)
-    elseif raw_data:match("^Enter passphrase") or
-        raw_data:match("'s password:") or
-        raw_data:match("^Password for ") then
-      prompt_secret(job, raw_data)
-    elseif raw_data:match("^\27]0;") then
-      -- Start of an Operating System Command, just ignore it.
-    elseif raw_data:match("^Are you sure you want to continue connecting ") or
-        raw_data:match("Please type .+:") then
-      prompt_default(job, raw_data)
-    else
-      table.insert(job:stdout_buf(), raw_data)
-    end
+---@class nviq.appl.git.PtyState
+---@field lines string[]
+---@field tail string
+
+---@param data string
+---@return string
+local function strip_pty_data(data)
+  local stripped = data:gsub("\27%[[%d;?]*[FGHJKhlm]", "")
+  return stripped
+end
+
+---@param job_id integer
+---@param data string
+---@return boolean prompted
+local function handle_prompt(job_id, data)
+  if data:match("^Username for .-:%s*$") then
+    prompt_default(job_id, data)
+  elseif data:match("^Enter passphrase.-:%s*$") or
+      data:match("'s password:%s*$") or
+      data:match("^Password for .-:%s*$") then
+    prompt_secret(job_id, data)
+  elseif data:match("^Are you sure you want to continue connecting .-%?%s*$") or
+      data:match("Please type .+:%s*$") then
+    prompt_default(job_id, data)
+  else
+    return false
+  end
+  return true
+end
+
+---@param job_id integer
+---@param state nviq.appl.git.PtyState
+---@param data string
+local function consume_pty_data(job_id, state, data)
+  local raw_data = strip_pty_data(data)
+  if raw_data == "" or raw_data:match("^\27]0;") then
+    return
+  end
+  if not handle_prompt(job_id, raw_data) then
+    table.insert(state.lines, raw_data)
   end
 end
 
----
----@param job nviq.futures.Job
----@param data integer
-local function on_pty_exit(job, data)
-  local message = table.concat(job:stdout_buf(), "\n")
-  if data == 0 then
+---@param job_id integer
+---@param state nviq.appl.git.PtyState
+---@param data string[]
+local function on_pty_stdout(job_id, state, data)
+  local eof = #data == 1 and data[1] == ""
+  state.tail = state.tail .. (data[1] or "")
+
+  for index = 2, #data do
+    consume_pty_data(job_id, state, state.tail)
+    state.tail = data[index]
+  end
+
+  if eof then
+    consume_pty_data(job_id, state, state.tail)
+    state.tail = ""
+    return
+  end
+
+  local tail = strip_pty_data(state.tail)
+  if handle_prompt(job_id, tail) then
+    state.tail = ""
+  end
+end
+
+---@param state nviq.appl.git.PtyState
+---@param code integer
+local function on_pty_exit(state, code)
+  if state.tail ~= "" then
+    local tail = strip_pty_data(state.tail)
+    if tail ~= "" and not tail:match("^\27]0;") then
+      table.insert(state.lines, tail)
+    end
+    state.tail = ""
+  end
+
+  local message = table.concat(state.lines, "\n")
+  if code == 0 then
     vim.notify(message)
   else
     lib.warn(message)
   end
 end
 
----
----@return nviq.futures.Job?
-function M.pull()
+---@param operation "pull"|"push"
+---@return nviq.util.a.Job?
+local function start_remote(operation)
   local root = M.get_root()
   if not root then
     lib.warn("Not a git repository.")
     return
   end
 
-  local pull_job = futures.Job.new({ "git", "pull" }, { cwd = root, pty = true })
-  pull_job:on_stdout(on_pty_stdout)
-  pull_job:continue_with(on_pty_exit)
+  if not lib.has_exe("git", true) then
+    return
+  end
 
-  return pull_job
+  local state = {
+    lines = {},
+    tail = "",
+  }
+  return autil.job.start({ "git", operation }, {
+    cwd = root,
+    pty = true,
+    on_stdout = function(job_id, data)
+      on_pty_stdout(job_id, state, data)
+    end,
+    on_exit = function(_, code)
+      on_pty_exit(state, code)
+    end,
+  })
 end
 
----
----@return nviq.futures.Job?
+---@return nviq.util.a.Job?
+function M.pull()
+  return start_remote("pull")
+end
+
+---@return nviq.util.a.Job?
 function M.push()
-  local root = M.get_root()
-  if not root then
-    lib.warn("Not a git repository.")
-    return
-  end
-
-  local push_job = futures.Job.new({ "git", "push" }, { cwd = root, pty = true })
-  push_job:on_stdout(on_pty_stdout)
-  push_job:continue_with(on_pty_exit)
-
-  return push_job
+  return start_remote("push")
 end
 
 return M

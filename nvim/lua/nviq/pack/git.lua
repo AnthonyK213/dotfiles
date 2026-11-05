@@ -1,4 +1,5 @@
 local packer = require("nviq.appl.packer")
+local autil = require("nviq.util.a")
 
 ------------------------------------fugitive------------------------------------
 
@@ -9,11 +10,12 @@ packer.add {
     conf = function()
       local function git_pull()
         local bufnr = vim.api.nvim_get_current_buf()
-        require("nviq.util.futures").spawn(function()
+        autil.task.start("git.pull", function()
           local job = require("nviq.appl.git").pull()
           if job then
             vim.notify("Pulling...")
-            if job:await() == 0 then
+            local result = job:wait()
+            if result.code == 0 and vim.api.nvim_buf_is_valid(bufnr) then
               vim.api.nvim_buf_call(bufnr, function() vim.cmd("Git") end)
             end
           end
@@ -22,11 +24,12 @@ packer.add {
 
       local function git_push()
         local bufnr = vim.api.nvim_get_current_buf()
-        require("nviq.util.futures").spawn(function()
+        autil.task.start("git.push", function()
           local job = require("nviq.appl.git").push()
           if job then
             vim.notify("Pushing...")
-            if job:await() == 0 then
+            local result = job:wait()
+            if result.code == 0 and vim.api.nvim_buf_is_valid(bufnr) then
               vim.api.nvim_buf_call(bufnr, function() vim.cmd("Git") end)
             end
           end

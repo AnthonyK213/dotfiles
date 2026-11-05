@@ -257,97 +257,6 @@ function M.ui.select(items, opts)
   return async.await(3, vim.ui.select, items, opts)
 end
 
----Runs an owned process and waits for it to exit.
----
----Closing the current task sends a termination signal to the process and waits
----for `vim.system()` to finish draining and closing its pipes. If the process
----does not exit during the grace period, it is sent the force signal.
----@async
----@param cmd string[]
----@param opts? vim.SystemOpts
----@param cancel_opts? nviq.util.a.process.CancelOpts
----@return vim.SystemCompleted result
-function M.process.run(cmd, opts, cancel_opts)
-  local signal, force_signal, grace = resolve_cancel_opts(cancel_opts)
-
-  return async.await(function(done)
-    ---@type vim.SystemObj?
-    local process
-    ---@type uv.uv_timer_t?
-    local timer
-    local finished = false
-    local closing = false
-    local close_callbacks = {}
-
-    local function finish_close()
-      local callbacks = close_callbacks
-      close_callbacks = {}
-      for _, callback in ipairs(callbacks) do
-        callback()
-      end
-    end
-
-    local function finish(result)
-      if finished then
-        return
-      end
-
-      finished = true
-      close_timer(timer)
-      timer = nil
-
-      done(result)
-      finish_close()
-    end
-
-    process = vim.system(cmd, opts, vim.schedule_wrap(finish))
-
-    ---@type vim.async.Closable
-    local closable = {
-      is_closing = function()
-        -- Do not forward `process:is_closing()` here. Its process handle can be
-        -- closing while stdout and stderr are still being drained.
-        return closing or finished
-      end,
-
-      close = function(_, callback)
-        if callback then
-          table.insert(close_callbacks, callback)
-        end
-
-        if finished then
-          finish_close()
-          return
-        elseif closing then
-          return
-        end
-
-        closing = true
-
-        if not process:is_closing() then
-          process:kill(signal)
-        end
-
-        if finished or process:is_closing() then
-          return
-        end
-
-        timer = assert(vim.uv.new_timer())
-        timer:start(grace, 0, function()
-          close_timer(timer)
-          timer = nil
-
-          if not finished and not process:is_closing() then
-            process:kill(force_signal)
-          end
-        end)
-      end,
-    }
-
-    return closable
-  end)
-end
-
 ---Starts a long-lived process and returns its resource handle immediately.
 ---The caller owns the handle and must terminate it when its buffer or module
 ---session ends. Call `process:wait()` when task cancellation should own it.
@@ -359,6 +268,303 @@ end
 function M.process.start(cmd, opts, on_exit, cancel_opts)
   local signal, force_signal, grace = resolve_cancel_opts(cancel_opts)
   return Process.new(cmd, opts, on_exit, signal, force_signal, grace)
+end
+
+---Runs an owned process and waits for it to exit.
+---
+---Closing the current task sends a termination signal to the process and waits
+---for `vim.system()` to finish draining and closing its pipes. If the process
+---does not exit during the grace period, it is sent the force signal.
+---@async
+---@param cmd string[]
+---@param opts? vim.SystemOpts
+---@param cancel_opts? nviq.util.a.process.CancelOpts
+---@return vim.SystemCompleted result
+function M.process.run(cmd, opts, cancel_opts)
+  return M.process.start(cmd, opts, nil, cancel_opts):wait()
+end
+
+---@class nviq.util.a.JobResult
+---@field id integer
+---@field code integer
+---@field event string
+
+---@class nviq.util.a.Job : vim.async.Closable
+---@field private m_cmd string[]
+---@field private m_opts table
+---@field private m_id integer
+---@field private m_result? nviq.util.a.JobResult
+---@field private m_on_exit? fun(job_id: integer, code: integer, event: string)
+---@field private m_waiters fun(result: nviq.util.a.JobResult)[]
+---@field private m_close_callbacks fun()[]
+---@field private m_closing boolean
+local Job = {}
+
+Job.__index = Job
+
+---@private
+function Job:_finish_close()
+  local callbacks = self.m_close_callbacks
+  self.m_close_callbacks = {}
+  for _, callback in ipairs(callbacks) do
+    callback()
+  end
+end
+
+---@param code integer
+---@param event string
+function Job:_finish(code, event)
+  if self.m_result then
+    return
+  end
+
+  local result = {
+    id = self.m_id,
+    code = code,
+    event = event,
+  }
+  self.m_result = result
+
+  local callback_error
+  if self.m_on_exit then
+    local on_exit = assert(self.m_on_exit)
+    self.m_on_exit = nil
+    local ok, err = xpcall(function()
+      on_exit(self.m_id, code, event)
+    end, debug.traceback)
+    if not ok then
+      callback_error = err
+    end
+  end
+
+  local waiters = self.m_waiters
+  self.m_waiters = {}
+  for _, waiter in ipairs(waiters) do
+    waiter(result)
+  end
+  self:_finish_close()
+
+  if callback_error then
+    error(callback_error, 0)
+  end
+end
+
+---Returns the command used to start the job.
+---@return string[]
+function Job:cmd()
+  return self.m_cmd
+end
+
+---Returns the job/channel id.
+---@return integer
+function Job:id()
+  return self.m_id
+end
+
+---Waits for the job to exit.
+---Closing the current task stops the job and waits for `on_exit`.
+---@async
+---@return nviq.util.a.JobResult result
+function Job:wait()
+  ---@param done fun(result: nviq.util.a.JobResult)
+  local function wait(done)
+    if self.m_result then
+      done(self.m_result)
+      return
+    end
+
+    table.insert(self.m_waiters, done)
+
+    local closing = false
+    ---@type vim.async.Closable
+    local closable = {
+      is_closing = function()
+        return closing or self.m_result ~= nil
+      end,
+      close = function(_, callback)
+        closing = true
+        self:close(callback)
+      end,
+    }
+    return closable
+  end
+
+  return async.await(wait)
+end
+
+---Sends data to the job's stdin channel.
+---@param data string|string[]
+---@return integer sent Number of bytes written, or zero when unavailable.
+function Job:send(data)
+  if self.m_opts.rpc or self:is_closing() then
+    return 0
+  end
+  return vim.fn.chansend(self.m_id, data)
+end
+
+---Returns whether the job is stopping or has exited.
+---@return boolean
+function Job:is_closing()
+  return self.m_closing or self.m_result ~= nil
+end
+
+---Stops the job. Repeated calls are safe.
+---@return boolean stopped
+function Job:stop()
+  if self.m_result or self.m_closing then
+    return false
+  end
+  self.m_closing = true
+  return vim.fn.jobstop(self.m_id) == 1
+end
+
+---Stops the job and invokes `callback` after `on_exit` has completed.
+---@param callback? fun()
+function Job:close(callback)
+  if callback then
+    table.insert(self.m_close_callbacks, callback)
+  end
+
+  if self.m_result then
+    self:_finish_close()
+    return
+  end
+
+  self:stop()
+end
+
+---@private
+---@param cmd string[]
+---@param options? table See `jobstart-options`.
+---@param class? table
+---@return nviq.util.a.Job
+function Job.new(cmd, options, class)
+  local opts = vim.tbl_extend("force", {}, options or {})
+  local on_exit = opts.on_exit
+  local on_stdout = opts.on_stdout
+  local on_stderr = opts.on_stderr
+
+  ---@type nviq.util.a.Job
+  local job = setmetatable({
+    m_cmd = cmd,
+    m_opts = opts,
+    m_id = -1,
+    m_on_exit = on_exit,
+    m_waiters = {},
+    m_close_callbacks = {},
+    m_closing = false,
+  }, class or Job)
+
+  if on_stdout then
+    opts.on_stdout = vim.schedule_wrap(on_stdout)
+  end
+  if on_stderr then
+    opts.on_stderr = vim.schedule_wrap(on_stderr)
+  end
+  opts.on_exit = vim.schedule_wrap(function(job_id, code, event)
+    if job_id == job:id() then
+      job:_finish(code, event)
+    end
+  end)
+
+  job.m_id = vim.fn.jobstart(cmd, opts)
+  if job.m_id == 0 then
+    error("jobstart() received invalid arguments", 3)
+  elseif job.m_id == -1 then
+    error("Executable was not found: " .. tostring(cmd[1]), 3)
+  end
+
+  return job
+end
+
+---Starts a channel, PTY, or RPC job and returns its handle immediately.
+---@param cmd string[]
+---@param opts? table See `jobstart-options`.
+---@return nviq.util.a.Job job
+function M.job.start(cmd, opts)
+  return Job.new(cmd, opts)
+end
+
+---Starts an owned job and waits for it to exit.
+---@async
+---@param cmd string[]
+---@param opts? table See `jobstart-options`.
+---@return nviq.util.a.JobResult result
+function M.job.run(cmd, opts)
+  return M.job.start(cmd, opts):wait()
+end
+
+---@class nviq.util.a.Terminal : nviq.util.a.Job
+---@field private m_bufnr integer
+local Terminal = {}
+
+Terminal.__index = Terminal
+setmetatable(Terminal, { __index = Job })
+
+---Returns the terminal buffer number.
+---@return integer
+function Terminal:bufnr()
+  return self.m_bufnr
+end
+
+---@private
+---@param cmd string[]
+---@param options? table See `jobstart-options`.
+---@return nviq.util.a.Terminal
+function Terminal.new(cmd, options)
+  local winid = vim.api.nvim_get_current_win()
+  local previous_buf = vim.api.nvim_win_get_buf(winid)
+  local bufnr = vim.api.nvim_create_buf(false, false)
+  if bufnr == 0 then
+    error("Failed to create a terminal buffer", 3)
+  end
+
+  local ok, err = pcall(vim.api.nvim_win_set_buf, winid, bufnr)
+  if not ok then
+    vim.api.nvim_buf_delete(bufnr, { force = true })
+    error(err, 3)
+  end
+
+  local opts = vim.tbl_extend("force", {}, options or {}, { term = true })
+  local started, terminal = pcall(Job.new, cmd, opts, Terminal)
+  if not started then
+    if vim.api.nvim_win_is_valid(winid)
+        and vim.api.nvim_buf_is_valid(previous_buf)
+        and vim.api.nvim_win_get_buf(winid) == bufnr then
+      vim.api.nvim_win_set_buf(winid, previous_buf)
+    end
+    if vim.api.nvim_buf_is_valid(bufnr) then
+      vim.api.nvim_buf_delete(bufnr, { force = true })
+    end
+    error(terminal, 3)
+  end
+
+  terminal = terminal --[[@as nviq.util.a.Terminal]]
+  terminal.m_bufnr = bufnr
+  vim.api.nvim_buf_attach(bufnr, false, {
+    on_detach = function()
+      terminal:stop()
+    end,
+  })
+
+  return terminal
+end
+
+---Starts a terminal job in a new buffer in the current window.
+---@param cmd string[]
+---@param opts? table See `jobstart-options`.
+---@return nviq.util.a.Terminal terminal
+function M.terminal.start(cmd, opts)
+  return Terminal.new(cmd, opts)
+end
+
+---Starts an owned terminal job and waits for it to exit.
+---@async
+---@param cmd string[]
+---@param opts? table See `jobstart-options`.
+---@return nviq.util.a.JobResult result
+function M.terminal.run(cmd, opts)
+  return M.terminal.start(cmd, opts):wait()
 end
 
 ---Creates a directory asynchronously.

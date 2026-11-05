@@ -1,7 +1,6 @@
 local lib = require("nviq.util.lib")
 local futil = require("nviq.util.f")
 local autil = require("nviq.util.a")
-local futures = require("nviq.util.futures")
 
 local M = {}
 
@@ -144,10 +143,9 @@ end
 ---
 ---@param cmd string[]
 ---@param options? table
----@return nviq.futures.Terminal?
+---@return nviq.util.a.Terminal?
 local function term_new(cmd, options)
-  local term = futures.Terminal.new(cmd, options)
-  if not term:is_valid(true) then
+  if not lib.has_exe(cmd[1], true) then
     return
   end
 
@@ -163,6 +161,11 @@ local function term_new(cmd, options)
     return
   end
 
+  local ok, term = pcall(autil.terminal.start, cmd, options)
+  if not ok then
+    lib.warn(tostring(term))
+    return
+  end
   return term
 end
 
@@ -205,15 +208,19 @@ function M.task_run(task, args)
             [[".\\%s & call echo [Process exited !ERRORLEVEL!] & exit /b 0"]],
             args.prod_name
           )
-          run = term_new({ "cmd", "/V:ON", "/c", cmd_wrap }, { cwd = args.file_dir })
+          run = term_new({ "cmd", "/V:ON", "/c", cmd_wrap }, {
+            cwd = args.file_dir,
+            on_exit = clean_product,
+          })
         else
-          run = term_new({ prod_path }, { cwd = args.file_dir })
+          run = term_new({ prod_path }, {
+            cwd = args.file_dir,
+            on_exit = clean_product,
+          })
         end
         if run then
-          run:continue_with(clean_product)
-          if run:start() then
-            return
-          end
+          run:wait()
+          return
         end
       else
         lib.warn(result.stderr or "Build failed")
@@ -230,10 +237,7 @@ function M.task_run(task, args)
     return
   end
 
-  local run = term_new(cmd_args, { cwd = args.file_dir })
-  if run then
-    run:start()
-  end
+  term_new(cmd_args, { cwd = args.file_dir })
 end
 
 return M
