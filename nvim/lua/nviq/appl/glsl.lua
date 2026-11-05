@@ -1,6 +1,5 @@
 local lib = require("nviq.util.lib")
 local autil = require("nviq.util.a")
-local futures = require("nviq.util.futures")
 
 local _comp_list = {
   "void", "bool", "int", "float", "vec2", "vec3", "vec4", "bvec2", "bvec3",
@@ -27,18 +26,69 @@ local _comp_list = {
 
 local M = {}
 
+---@class nviq.appl.glsl.Session
+---@field process nviq.util.a.Process
+---@field stdout_tail string
+
 ---@private
----@type table<integer, nviq.futures.Process>
+---@type table<integer, nviq.appl.glsl.Session>
 M.tbl = {}
+
+---@param session nviq.appl.glsl.Session
+---@param data string
+---@return string[] lines
+local function read_lines(session, data)
+  data = session.stdout_tail .. data
+  local lines = {}
+  local start = 1
+
+  while true do
+    local first, last = data:find("[\r\n]+", start)
+    if not first then
+      break
+    end
+    table.insert(lines, data:sub(start, first - 1))
+    start = last + 1
+  end
+
+  session.stdout_tail = data:sub(start)
+  return lines
+end
+
+---@param lines string[]
+---@return string? output
+local function filter_output(lines)
+  local output = vim.tbl_filter(function(line)
+    return not (vim.startswith(line, "// >") or line:match("^%s*$"))
+  end, lines)
+  if #output == 0 then
+    return
+  end
+  return table.concat(output, "\n")
+end
+
+---@param bufnr integer
+---@param session nviq.appl.glsl.Session
+---@param lines string[]
+local function notify_output(bufnr, session, lines)
+  local output = filter_output(lines)
+  if not output then
+    return
+  end
+
+  vim.schedule(function()
+    if M.tbl[bufnr] == session then
+      vim.notify(output)
+    end
+  end)
+end
 
 ---@private
 ---@param bufnr integer
 ---@return boolean
 function M.is_alive(bufnr)
-  if M.tbl[bufnr] and not M.tbl[bufnr]:has_exited() then
-    return true
-  end
-  return false
+  local session = M.tbl[bufnr]
+  return session ~= nil and not session.process:is_closing()
 end
 
 ---Start glslViewer.
@@ -53,43 +103,64 @@ function M.start(bufnr, fargs)
     return
   end
 
-  table.insert(fargs, "--noncurses")
-  local viewer = futures.Process.new("glslViewer", {
-    args = fargs,
-    cwd = lib.buf_dir(bufnr),
-  }):continue_with(function() vim.notify("glslViewer: Exited") end)
+  if not lib.has_exe("glslViewer", true) then
+    return
+  end
 
-  viewer:on_stdout(function(_, data)
-    local lines = vim.split(data, "[\n\r]", {
-      plain = false,
-      trimempty = true,
-    })
-    local output = vim.tbl_filter(function(v)
-      return not (vim.startswith(v, "// >") or v:match("^%s*$"))
-    end, lines)
-    if #output > 0 then
-      vim.notify(table.concat(output, "\n"))
+  table.insert(fargs, "--noncurses")
+  local session = {
+    stdout_tail = "",
+  }
+
+  local cmd = vim.list_extend({ "glslViewer" }, fargs)
+  session.process = autil.process.start(cmd, {
+    cwd = lib.buf_dir(bufnr),
+    stdin = true,
+    text = true,
+    stdout = function(err, data)
+      if err then
+        vim.schedule(function()
+          if M.tbl[bufnr] == session then
+            lib.warn("glslViewer: " .. err)
+          end
+        end)
+      elseif data then
+        notify_output(bufnr, session, read_lines(session, data))
+      end
+    end,
+  }, function(_, result)
+    if session.stdout_tail ~= "" then
+      local output = filter_output { session.stdout_tail }
+      if output and M.tbl[bufnr] == session then
+        vim.notify(output)
+      end
+      session.stdout_tail = ""
+    end
+    if M.tbl[bufnr] == session then
+      M.tbl[bufnr] = nil
+      if result.code == 0 then
+        vim.notify("glslViewer: Exited")
+      else
+        lib.warn("glslViewer: Exited with code " .. result.code)
+      end
     end
   end)
 
-  if viewer:start() then
-    M.tbl[bufnr] = viewer
-    vim.api.nvim_buf_attach(bufnr, false, {
-      on_detach = function(_, h) M.stop(h) end
-    })
-    vim.notify("glslViewer: Started")
-  else
-    lib.warn("glslViewer: Failed to start")
-  end
+  M.tbl[bufnr] = session
+  vim.api.nvim_buf_attach(bufnr, false, {
+    on_detach = function(_, h) M.stop(h) end
+  })
+  vim.notify("glslViewer: Started")
 end
 
 ---Stop glslViewer attached to the buffer.
 ---@param bufnr? integer
 function M.stop(bufnr)
   bufnr = lib.bufnr(bufnr)
-  if M.tbl[bufnr] then
-    M.tbl[bufnr]:kill()
+  local session = M.tbl[bufnr]
+  if session then
     M.tbl[bufnr] = nil
+    session.process:close()
   end
 end
 
@@ -112,10 +183,15 @@ function M.input(bufnr)
   end
 
   autil.task.start("glsl.input", function()
+    local session = M.tbl[bufnr]
     local data = autil.ui.input { prompt = "glslViewer > " }
     if not data or #data == 0 then return end
+    if M.tbl[bufnr] ~= session or not M.is_alive(bufnr) then
+      lib.warn("glslViewer is no longer running!")
+      return
+    end
     vim.notify("// > " .. data)
-    M.tbl[bufnr]:write(data .. "\n")
+    session.process:write(data .. "\n")
   end)
 end
 
