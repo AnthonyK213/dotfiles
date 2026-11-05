@@ -46,11 +46,7 @@ function ProcessHandle:kill(signum)
   if self.m_exited then
     return 0
   end
-  local code = self.m_data:kill(signum or vim.uv.constants.SIGTERM)
-  if code ~= 0 then
-    self:close()
-  end
-  return code
+  return self.m_data:kill(signum or vim.uv.constants.SIGTERM)
 end
 
 ---Provides access and control to local processes.
