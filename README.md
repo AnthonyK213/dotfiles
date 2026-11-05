@@ -19,7 +19,7 @@
 
 ### Requirements
 
-- [Neovim](https://github.com/neovim/neovim) 0.12 or later
+- [Neovim](https://github.com/neovim/neovim) 0.13 or later
 - [Git](https://github.com/git/git)
 - [tree-sitter](https://github.com/tree-sitter/tree-sitter) CLI
 - [ripgrep](https://github.com/BurntSushi/ripgrep) (optional)
