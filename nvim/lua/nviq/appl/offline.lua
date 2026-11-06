@@ -222,7 +222,7 @@ local function ui_select(items, opts, on_choice)
   vim.keymap.set("n", "<Esc>", close_current_window, { buf = bufnr })
 
   vim.api.nvim_create_autocmd("WinClosed", {
-    buffer = bufnr,
+    buf = bufnr,
     callback = function()
       vim.api.nvim_buf_delete(bufnr, {})
       if not selected then
@@ -246,23 +246,23 @@ local function get_filtered_symbols(items)
 end
 
 ---Shows a filtered location list of document symbols.
----@param options vim.lsp.LocationOpts.OnList
+---@param options vim.fn.setqflist.what
 local function show_filtered_symbols_in_loclist(options)
   options.items = get_filtered_symbols(options.items)
-  vim.fn.setloclist(0, {}, " ", options --[[@as vim.fn.setqflist.what]])
+  vim.fn.setloclist(0, {}, " ", options)
   vim.cmd.lopen()
 end
 
 ---Shows a filtered quickfix list of document symbols.
----@param options vim.lsp.LocationOpts.OnList
+---@param options vim.fn.setqflist.what
 local function show_filtered_symbols_in_qflist(options)
   options.items = get_filtered_symbols(options.items)
-  vim.fn.setqflist({}, " ", options --[[@as vim.fn.setqflist.what]])
+  vim.fn.setqflist({}, " ", options)
   vim.cmd.copen()
 end
 
 ---Finds symbol (fuzzy) with the input query.
----@param options vim.lsp.LocationOpts.OnList
+---@param options vim.fn.setqflist.what
 local function find_in_filtered_symbols(options)
   local winid = vim.api.nvim_get_current_win()
 
