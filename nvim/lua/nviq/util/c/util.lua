@@ -11,7 +11,7 @@ function M.to_string(v)
 end
 
 ---Returns a human-readable representation of the given iterable collection.
----@param iterable any
+---@param iterable nviq.util.c.Iterable
 ---@param meta table
 ---@param name string
 ---@param separator? string
@@ -40,34 +40,6 @@ function M.iter_inspect(iterable, meta, name, separator)
     end
   end
   return str(iterable)
-end
-
----Returns `contains` method of `iterable`.
----@param iterable any[]|nviq.collections.Iterable
----@return (fun(iterable: any[]|nviq.collections.Iterable, item: any):boolean)?
-function M.get_contains(iterable)
-  if getmetatable(iterable) and type(iterable.contains) == "function" then
-    return iterable.contains
-  elseif vim.islist(iterable) then
-    return vim.list_contains
-  else
-    return
-  end
-end
-
----Returns `count` method of `iterable`.
----@param iterable any[]|nviq.collections.Iterable
----@return (fun(iterable: any[]|nviq.collections.Iterable):integer)?
-function M.get_count(iterable)
-  if getmetatable(iterable) and type(iterable.count) == "function" then
-    return iterable.count
-  elseif vim.islist(iterable) then
-    return function(x)
-      return #x
-    end
-  else
-    return
-  end
 end
 
 return M

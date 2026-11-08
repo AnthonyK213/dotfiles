@@ -1,6 +1,6 @@
-local collections = require("nviq.util.collections")
-local List = collections.List
-local Deque = collections.Deque
+local cutil = require("nviq.util.c")
+local List = cutil.List
+local Deque = cutil.Deque
 
 local M = {}
 
@@ -133,9 +133,11 @@ end
 ---@param node TSNode
 ---@param predicate fun(node: TSNode):boolean
 ---@param option { limit: integer, recursive: boolean, type: "bfs"|"dfs" }
----@return nviq.collections.List
+---@return nviq.util.c.List<nviq.util.syntax.TSNode>
 local function _find_children_bfs(node, predicate, option)
-  local result = List.new()
+  ---@type nviq.util.c.List<nviq.util.syntax.TSNode>
+  local result = List()
+  ---@type nviq.util.c.Deque<TSNode>
   local deque = Deque(node)
   local depth = 0
   local last = node
@@ -144,7 +146,7 @@ local function _find_children_bfs(node, predicate, option)
     if option.recursive and depth > 1 then
       break
     end
-    local node_cur = deque:pop_front() --[[@as TSNode]]
+    local node_cur = deque:pop_front()
     if predicate(node_cur) then
       if result:count() >= limit then
         break
@@ -170,12 +172,12 @@ end
 ---@param node TSNode
 ---@param predicate fun(node: TSNode):boolean
 ---@param option { limit: integer, recursive: boolean, type: "bfs"|"dfs" }
----@return nviq.collections.List
+---@return nviq.util.c.List<nviq.util.syntax.TSNode>
 local function _find_children_dfs(node, predicate, option)
   ---
   ---@param node_ TSNode
   ---@param predicate_ fun(node: TSNode):boolean
-  ---@param result_ nviq.collections.List
+  ---@param result_ nviq.util.c.List<nviq.util.syntax.TSNode>
   ---@param option_ { limit: integer, recursive: boolean, type: "bfs"|"dfs" }
   local function dfs_(node_, predicate_, result_, option_)
     if not node_ then return end
@@ -208,7 +210,7 @@ function TSNode:find_first_child(predicate, option)
     local option_ = vim.deepcopy(option or {})
     option_.limit = 1
     local list = self:find_children(p, option_)
-    if list:any() then
+    if list:count() > 0 then
       return list[1]
     end
   end
@@ -218,7 +220,7 @@ end
 ---Find all child node by a predicate.
 ---@param predicate string|string[]|fun(node: TSNode):boolean The predicate.
 ---@param option? { limit: integer, recursive: boolean, type: "bfs"|"dfs" }
----@return nviq.collections.List
+---@return nviq.util.c.List
 function TSNode:find_children(predicate, option)
   option = option or {}
   local p = _check_predicate(predicate)

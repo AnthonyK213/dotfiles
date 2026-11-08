@@ -1,11 +1,9 @@
-local Iterator = require("nviq.util.collections.iter")
-
 ---Represents a double-ended queue.
----@class nviq.collections.Deque : nviq.collections.Iterable
----@field private m_data any[]
+---@class nviq.util.c.Deque<T> : nviq.util.c.Iterable
+---@field private m_data T[]
 ---@field private m_front integer
 ---@field private m_back integer
----@operator call:nviq.collections.Deque
+---@operator call:nviq.util.c.Deque
 local Deque = {}
 
 ---@private
@@ -18,7 +16,7 @@ setmetatable(Deque, {
 })
 
 ---Constructor.
----@return nviq.collections.Deque
+---@return nviq.util.c.Deque
 function Deque.new(...)
   local count = select("#", ...)
   local front = -bit.rshift(count, 1)
@@ -30,25 +28,6 @@ function Deque.new(...)
   for i = 1, count, 1 do
     deque.m_data[i + front - 1] = select(i, ...)
   end
-  setmetatable(deque, Deque)
-  return deque
-end
-
----Create `Deque` from an iterable collection.
----@param iterable any[]|nviq.collections.Iterable An iterable collection.
----@return nviq.collections.Deque
-function Deque.from(iterable)
-  local data = {}
-  local index = 0
-  for _, v in Iterator.get(iterable):consume() do
-    index = index + 1
-    data[index] = v
-  end
-  local deque = {
-    m_data  = data,
-    m_front = 1,
-    m_back  = index,
-  }
   setmetatable(deque, Deque)
   return deque
 end
@@ -76,7 +55,7 @@ end
 
 ---Get the element at the given one-based index.
 ---@param index integer The one-based index.
----@return any
+---@return T
 function Deque:get(index)
   index = self:data_index(index)
   self:boundary_check(index)
@@ -84,21 +63,21 @@ function Deque:get(index)
 end
 
 ---Get the back element.
----@return any
+---@return T
 function Deque:get_back()
   self:boundary_check()
   return self.m_data[self.m_back]
 end
 
 ---Get the front element.
----@return any
+---@return T
 function Deque:get_front()
   self:boundary_check()
   return self.m_data[self.m_front]
 end
 
 ---Removes the last element from the deque and returns it.
----@return any
+---@return T
 function Deque:pop_back()
   self:boundary_check()
   local item = self.m_data[self.m_back]
@@ -108,7 +87,7 @@ function Deque:pop_back()
 end
 
 ---Removes the first element and returns it.
----@return any
+---@return T
 function Deque:pop_front()
   self:boundary_check()
   local item = self.m_data[self.m_front]
@@ -118,14 +97,14 @@ function Deque:pop_front()
 end
 
 ---Appends an element to the back of the `Deque`.
----@param item any
+---@param item T
 function Deque:push_back(item)
   self.m_back = self.m_back + 1
   self.m_data[self.m_back] = item
 end
 
 ---Prepends an element to the `Deque`.
----@param item any
+---@param item T
 function Deque:push_front(item)
   self.m_front = self.m_front - 1
   self.m_data[self.m_front] = item
@@ -135,18 +114,6 @@ end
 ---@return integer
 function Deque:count()
   return self.m_back - self.m_front + 1
-end
-
----Determines whether an element is in the `Deque`.
----@param item any The object to locate in the `Deque`.
----@return boolean result `true` if `item` is found in the `Deque`; otherwise, `false`.
-function Deque:contains(item)
-  for i = self.m_front, self.m_back, 1 do
-    if self.m_data[i] == item then
-      return true
-    end
-  end
-  return false
 end
 
 ---Clears the deque, removing all values.
@@ -161,7 +128,7 @@ end
 ---Inserts an element at one-based `index` within the deque, shifting all elements
 ---with indices greater than or equal to `index` towards the back.
 ---@param index integer The one-based index at which item should be inserted.
----@param item any The object to insert.
+---@param item T The object to insert.
 function Deque:insert(index, item)
   index = self:data_index(index)
   self:boundary_check(index, nil, self.m_back + 1)
@@ -174,7 +141,7 @@ end
 
 ---Removes and returns the element at one-based `index` from the `Deque`.
 ---@param index integer The one-based index of the element to remove.
----@return any item The removed item.
+---@return T item The removed item.
 function Deque:remove_at(index)
   index = self:data_index(index)
   self:boundary_check(index)
@@ -188,7 +155,7 @@ function Deque:remove_at(index)
 end
 
 ---Get the iterator of the `Deque`.
----@return fun():integer?, any iterator
+---@return fun():(integer?, T?) iterator
 function Deque:iter()
   local index = self.m_front - 1
   return function()
@@ -221,7 +188,7 @@ end
 ---Returns a string that represents the current object.
 ---@return string
 function Deque:__tostring()
-  return require("nviq.util.collections.util").iter_inspect(self, Deque, "Deque")
+  return require("nviq.util.c.util").iter_inspect(self, Deque, "Deque")
 end
 
 return Deque
