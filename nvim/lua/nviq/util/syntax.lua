@@ -220,7 +220,7 @@ end
 ---Find all child node by a predicate.
 ---@param predicate string|string[]|fun(node: TSNode):boolean The predicate.
 ---@param option? { limit: integer, recursive: boolean, type: "bfs"|"dfs" }
----@return nviq.util.c.List
+---@return nviq.util.c.List<nviq.util.syntax.TSNode>
 function TSNode:find_children(predicate, option)
   option = option or {}
   local p = _check_predicate(predicate)

@@ -57,12 +57,6 @@ function List:boundary_check(index, count, min, max, backward)
   end
 end
 
----Returns the number of elements contained in the `List`.
----@return integer
-function List:count()
-  return self.m_size
-end
-
 ---Adds an object to the end of the `List`.
 ---@param item T The object to be added to the end of the `List`.
 function List:add(item)
@@ -119,18 +113,6 @@ function List:sort(comparer)
   table.sort(self.m_data, comparer)
 end
 
----Get the iterator of the `List`.
----@return fun():(integer?, T?) iterator
-function List:iter()
-  local index = 0
-  return function()
-    index = index + 1
-    if index <= self.m_size then
-      return index, self.m_data[index]
-    end
-  end
-end
-
 ---Reverses the order of the elements in the `List` or a portion of it.
 ---@param index? integer The one-based starting index of the range to reverse.
 ---@param count? integer The number of elements in the range to reverse.
@@ -152,6 +134,26 @@ function List:reverse(index, count)
   end
 end
 
+---Returns the number of elements contained in the `List`.
+---@return integer
+function List:count()
+  return self.m_size
+end
+
+---Get the iterator of the `List`.
+---@return vim.Iter<integer, T>
+function List:iter()
+  local index = 0
+  return vim.iter(function()
+    index = index + 1
+    if index <= self.m_size then
+      return index, self.m_data[index]
+    else
+      return nil, nil
+    end
+  end)
+end
+
 ---@private
 ---Equality test.
 ---@param list nviq.util.c.List
@@ -169,14 +171,6 @@ function List:__eq(list)
     end
   end
   return true
-end
-
----@private
----Returns the number of elements contained in the `List`.
----Only available with 5.2+ :(
----@return integer
-function List:__len()
-  return self.m_size
 end
 
 ---@private

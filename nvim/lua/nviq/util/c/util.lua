@@ -19,6 +19,9 @@ end
 function M.iter_inspect(iterable, meta, name, separator)
   local visited = {}
   separator = separator or ", "
+  ---
+  ---@param obj nviq.util.c.Iterable
+  ---@return string
   local function str(obj)
     if getmetatable(obj) == meta then
       local index = visited[obj]

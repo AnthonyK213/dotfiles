@@ -28,12 +28,6 @@ function Stack:clear()
   self.m_top = 0
 end
 
----Gets the number of elements contained in the `Stack`.
----@return integer
-function Stack:count()
-  return self.m_top
-end
-
 ---Returns the object at the top of the Stack without removing it.
 ---@return T
 function Stack:peek()
@@ -62,16 +56,24 @@ function Stack:push(item)
   self.m_data[self.m_top] = item
 end
 
+---Gets the number of elements contained in the `Stack`.
+---@return integer
+function Stack:count()
+  return self.m_top
+end
+
 ---Get the iterator of the `Stack`.
----@return fun():(integer?, T?) iterator
+---@return vim.Iter<integer, T>
 function Stack:iter()
   local index = 0
-  return function()
+  return vim.iter(function()
     index = index + 1
     if index <= self.m_top then
       return index, self.m_data[index]
+    else
+      return nil, nil
     end
-  end
+  end)
 end
 
 ---@private

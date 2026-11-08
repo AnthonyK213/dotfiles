@@ -110,12 +110,6 @@ function Deque:push_front(item)
   self.m_data[self.m_front] = item
 end
 
----Returns the number of the elements in the `Deque`.
----@return integer
-function Deque:count()
-  return self.m_back - self.m_front + 1
-end
-
 ---Clears the deque, removing all values.
 function Deque:clear()
   for i = self.m_front, self.m_back, 1 do
@@ -154,18 +148,6 @@ function Deque:remove_at(index)
   return item
 end
 
----Get the iterator of the `Deque`.
----@return fun():(integer?, T?) iterator
-function Deque:iter()
-  local index = self.m_front - 1
-  return function()
-    index = index + 1
-    if index <= self.m_back then
-      return index + 1 - self.m_front, self.m_data[index]
-    end
-  end
-end
-
 ---Rotates the deque `mid` places to the left.
 ---@param mid integer
 function Deque:rotate_left(mid)
@@ -182,6 +164,26 @@ function Deque:rotate_right(mid)
   for _ = 1, mid, 1 do
     self:push_front(self:pop_back())
   end
+end
+
+---Returns the number of the elements in the `Deque`.
+---@return integer
+function Deque:count()
+  return self.m_back - self.m_front + 1
+end
+
+---Get the iterator of the `Deque`.
+---@return vim.Iter<integer, T>
+function Deque:iter()
+  local index = self.m_front - 1
+  return vim.iter(function()
+    index = index + 1
+    if index <= self.m_back then
+      return index + 1 - self.m_front, self.m_data[index]
+    else
+      return nil, nil
+    end
+  end)
 end
 
 ---@private
