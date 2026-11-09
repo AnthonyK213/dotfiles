@@ -55,27 +55,11 @@ local function read_lines(session, data)
   return lines
 end
 
----@param lines string[]
----@return string? output
-local function filter_output(lines)
-  local output = vim.tbl_filter(function(line)
-    return not (vim.startswith(line, "// >") or line:match("^%s*$"))
-  end, lines)
-  if #output == 0 then
-    return
-  end
-  return table.concat(output, "\n")
-end
-
 ---@param bufnr integer
 ---@param session nviq.appl.glsl.Session
 ---@param lines string[]
 local function notify_output(bufnr, session, lines)
-  local output = filter_output(lines)
-  if not output then
-    return
-  end
-
+  local output = table.concat(lines, "\n")
   vim.schedule(function()
     if M.tbl[bufnr] == session then
       vim.notify(output)
@@ -130,9 +114,8 @@ function M.start(bufnr, fargs)
     end,
   }, function(_, result)
     if session.stdout_tail ~= "" then
-      local output = filter_output { session.stdout_tail }
-      if output and M.tbl[bufnr] == session then
-        vim.notify(output)
+      if session.stdout_tail and M.tbl[bufnr] == session then
+        vim.notify(session.stdout_tail)
       end
       session.stdout_tail = ""
     end
