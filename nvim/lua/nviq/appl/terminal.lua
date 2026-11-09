@@ -168,7 +168,9 @@ function M.toggle()
           return string.format("%s:%d", term:cmd()[1], item)
         end
       })
-      toggle_terminal(winid or new_window(), bufnr)
+      if bufnr then
+        toggle_terminal(winid or new_window(), bufnr)
+      end
     end)
   end
 end
