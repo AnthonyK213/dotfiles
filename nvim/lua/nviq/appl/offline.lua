@@ -51,6 +51,14 @@ vim.lsp.config("clangd", {
     "configure.ac", -- AutoTools
     ".git",
   },
+  get_language_id = function(_, ftype)
+    local t = {
+      objc   = "objective-c",
+      objcpp = "objective-cpp",
+      cuda   = "cuda-cpp"
+    }
+    return t[ftype] or ftype
+  end,
   capabilities = {
     textDocument = {
       completion = {
@@ -64,15 +72,24 @@ vim.lsp.config("clangd", {
 vim.lsp.config("lua_ls", {
   cmd = { "lua-language-server" },
   filetypes = { "lua" },
-  root_markers = {
+  root_markers = { {
+    ".emmyrc.json",
     ".luarc.json",
     ".luarc.jsonc",
+  }, {
     ".luacheckrc",
     ".stylua.toml",
     "stylua.toml",
     "selene.toml",
     "selene.yml",
+  }, {
     ".git",
+  } },
+  settings = {
+    Lua = {
+      codeLens = { enable = true },
+      hint = { enable = true, semicolon = "Disable" },
+    },
   },
 })
 
