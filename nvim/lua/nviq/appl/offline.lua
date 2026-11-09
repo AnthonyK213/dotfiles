@@ -1,6 +1,7 @@
 local lib = require("nviq.util.lib")
 local lsp = require("nviq.appl.lsp")
 local kutil = require("nviq.util.k")
+local autil = require("nviq.util.a")
 
 -- Vim options
 
@@ -221,7 +222,7 @@ local function ui_select(items, opts, on_choice)
   vim.keymap.set("n", "<Esc>", close_current_window, { buf = bufnr })
 
   vim.api.nvim_create_autocmd("WinClosed", {
-    buffer = bufnr,
+    buf = bufnr,
     callback = function()
       vim.api.nvim_buf_delete(bufnr, {})
       if not selected then
@@ -245,30 +246,28 @@ local function get_filtered_symbols(items)
 end
 
 ---Shows a filtered location list of document symbols.
----@param options vim.lsp.LocationOpts.OnList
+---@param options vim.fn.setqflist.what
 local function show_filtered_symbols_in_loclist(options)
   options.items = get_filtered_symbols(options.items)
-  vim.fn.setloclist(0, {}, " ", options --[[@as vim.fn.setqflist.what]])
+  vim.fn.setloclist(0, {}, " ", options)
   vim.cmd.lopen()
 end
 
 ---Shows a filtered quickfix list of document symbols.
----@param options vim.lsp.LocationOpts.OnList
+---@param options vim.fn.setqflist.what
 local function show_filtered_symbols_in_qflist(options)
   options.items = get_filtered_symbols(options.items)
-  vim.fn.setqflist({}, " ", options --[[@as vim.fn.setqflist.what]])
+  vim.fn.setqflist({}, " ", options)
   vim.cmd.copen()
 end
 
 ---Finds symbol (fuzzy) with the input query.
----@param options vim.lsp.LocationOpts.OnList
+---@param options vim.fn.setqflist.what
 local function find_in_filtered_symbols(options)
-  local futures = require("nviq.util.futures")
-
   local winid = vim.api.nvim_get_current_win()
 
-  futures.spawn(function()
-    local query = futures.ui.input { prompt = "Find symbols: " }
+  autil.task.start("offline.find_document_symbols", function()
+    local query = autil.ui.input { prompt = "Find symbols: " }
     if not query then return end
 
     local new_items = get_filtered_symbols(options.items)
@@ -296,10 +295,8 @@ end
 
 ---Find workspace symbols.
 local function find_workspace_symbols()
-  local futures = require("nviq.util.futures")
-
-  futures.spawn(function()
-    local query = futures.ui.input { prompt = "Find workspace symbols: " }
+  autil.task.start("offline.find_workspace_symbols", function()
+    local query = autil.ui.input { prompt = "Find workspace symbols: " }
     if query then
       vim.lsp.buf.workspace_symbol(query, {
         on_list = show_filtered_symbols_in_qflist
@@ -349,19 +346,22 @@ end
 ---@param dir string
 ---@return string[]? files File paths (relative).
 local function ls_files_git(dir)
-  local futures = require("nviq.util.futures")
+  if not lib.has_exe("git", false) then
+    return
+  end
 
-  local ls_files = futures.Process.new("git", {
-    args = { "ls-files", "--cached", "--others", "--exclude-standard" },
+  local result = autil.process.run({
+    "git", "ls-files", "--cached", "--others", "--exclude-standard",
+  }, {
     cwd = dir,
+    text = true,
   })
-  ls_files:set_record(true)
-  local code, _ = ls_files:await()
-  if code ~= 0 then return end
+  if result.code ~= 0 then return end
 
-  return vim.iter(ls_files:stdout_buf()):map(function(item)
-    return vim.split(item, "\n", { plain = true, trimempty = true })
-  end):flatten():totable()
+  return vim.split(result.stdout or "", "\n", {
+    plain = true,
+    trimempty = true,
+  })
 end
 
 ---Find files in dir.
@@ -373,10 +373,8 @@ local function ls_files(dir)
 end
 
 vim.keymap.set("n", "<leader>ff", function()
-  local futures = require("nviq.util.futures")
-
-  futures.spawn(function()
-    local query = futures.ui.input { prompt = "Find files: " }
+  autil.task.start("offline.find_files", function()
+    local query = autil.ui.input { prompt = "Find files: " }
     if not query then return end
 
     local cwd = vim.fn.getcwd()
@@ -398,7 +396,7 @@ vim.keymap.set("n", "<leader>ff", function()
     -- end
 
     ---@type string?
-    local file = futures.ui.select(files, { prompt = "Pick file: " })
+    local file = autil.ui.select(files, { prompt = "Pick file: " })
     if not file then return end
 
     lib.edit_file(vim.fs.joinpath(cwd, file))
@@ -455,10 +453,8 @@ local function grep_rg(query, dir)
 end
 
 vim.keymap.set("n", "<leader>fg", function()
-  local futures = require("nviq.util.futures")
-
-  futures.spawn(function()
-    local query = futures.ui.input { prompt = "Grep: " }
+  autil.task.start("offline.grep", function()
+    local query = autil.ui.input { prompt = "Grep: " }
     if not query then return end
 
     local cwd = vim.fn.getcwd()

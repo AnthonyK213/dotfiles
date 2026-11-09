@@ -81,7 +81,7 @@ function M.setup()
   local config = {
     cmd = function(dispatchers)
       local closing = false
-      ---@type vim.lsp.rpc.PublicClient
+      ---@type vim.lsp.rpc.Client
       return {
         request = function(method, params, callback, _)
           if closing then return false, nil end
@@ -95,7 +95,7 @@ function M.setup()
             }, 1)
           elseif method == vim.lsp.protocol.Methods.textDocument_completion then
             local bufnr = (params and params.textDocument and params.textDocument.uri)
-                and vim.uri_to_bufnr(params.textDocument.uri)
+                and vim.uri.to_buf(params.textDocument.uri)
                 or vim.api.nvim_get_current_buf()
             local items = get_snippet_items(vim.bo[bufnr].filetype)
             callback(nil, { isIncomplete = false, items = items }, 1)

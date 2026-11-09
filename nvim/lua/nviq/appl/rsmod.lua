@@ -1,7 +1,7 @@
 local lib = require("nviq.util.lib")
 local futil = require("nviq.util.f")
 local putil = require("nviq.util.p")
-local futures = require("nviq.util.futures")
+local autil = require("nviq.util.a")
 
 local M = {}
 
@@ -81,46 +81,28 @@ function M.build_crates(crates)
     return
   end
 
-  local build_tasks = {}
+  local crate_names = vim.tbl_keys(crates)
+  table.sort(crate_names)
 
-  for crate_name, crate_info in pairs(crates) do
-    local task = futures.async(function()
-      local code
-      -- code = futures.Process.new("cargo", {
-      --   args = { "update" },
-      --   cwd = crate_info.path,
-      -- }):await()
-      -- if code ~= 0 then
-      --   lib.warn(crate_name .. ": Could not update the dependencies")
-      --   return
-      -- end
-      code = futures.Process.new("cargo", {
-        args = { "build", "--release" },
-        cwd = crate_info.path,
-      }):await()
-      if code ~= 0 then
-        lib.warn(crate_name .. ": Failed to build the crate")
-        return
-      end
-      vim.notify(crate_name .. ": Done")
-    end)
-    table.insert(build_tasks, task)
-  end
-
-  if vim.tbl_isempty(build_tasks) then
-    vim.notify("No crates to build")
-    return
-  end
-
-  futures.spawn(function()
+  autil.task.start("rsmod.build_crates", function()
     vim.notify("Building...")
-    local handles = vim.tbl_map(function(task)
-      return futures.spawn(task())
-    end, build_tasks)
-    for _, handle in ipairs(handles) do
-      handle:await()
+
+    for _, crate_name in ipairs(crate_names) do
+      local result = autil.process.run({ "cargo", "build", "--release" }, {
+        cwd = crates[crate_name].path,
+        text = true,
+      })
+      if result.code == 0 then
+        vim.notify(crate_name .. ": Done")
+      else
+        local message = crate_name .. ": Failed to build the crate"
+        if result.stderr and result.stderr ~= "" then
+          message = message .. "\n" .. result.stderr
+        end
+        lib.warn(message)
+      end
     end
-    futures.Task.delay(1000):await()
+
     vim.notify("Done")
   end)
 end

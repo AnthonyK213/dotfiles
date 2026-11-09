@@ -1,6 +1,6 @@
 local lib = require("nviq.util.lib")
 local futil = require("nviq.util.f")
-local futures = require("nviq.util.futures")
+local autil = require("nviq.util.a")
 
 local M = {}
 
@@ -143,10 +143,9 @@ end
 ---
 ---@param cmd string[]
 ---@param options? table
----@return nviq.futures.Terminal?
+---@return nviq.util.a.Terminal?
 local function term_new(cmd, options)
-  local term = futures.Terminal.new(cmd, options)
-  if not term:is_valid(true) then
+  if not lib.has_exe(cmd[1], true) then
     return
   end
 
@@ -162,6 +161,11 @@ local function term_new(cmd, options)
     return
   end
 
+  local ok, term = pcall(autil.terminal.start, cmd, options)
+  if not ok then
+    lib.warn(tostring(term))
+    return
+  end
   return term
 end
 
@@ -183,15 +187,20 @@ function M.task_run(task, args)
 
   if task.product then
     if not args.prod_name then return end
-    local build = futures.Process.new(cmd, {
-      args = cmd_args,
-      cwd = args.file_dir,
-    })
-    build:set_record(true)
-    futures.spawn(function()
-      local code = build:await()
+    autil.task.start("run.build", function()
+      local result = autil.process.run(vim.list_extend({ cmd }, cmd_args), {
+        cwd = args.file_dir,
+        text = true,
+      })
       local prod_path = vim.fs.joinpath(args.file_dir, args.prod_name)
-      if code == 0 then
+
+      local function clean_product()
+        if futil.is_file(prod_path) then
+          vim.fs.rm(prod_path)
+        end
+      end
+
+      if result.code == 0 then
         local run
         if lib.has_win() then
           -- Handle negative return value on Windows.
@@ -199,19 +208,24 @@ function M.task_run(task, args)
             [[".\\%s & call echo [Process exited !ERRORLEVEL!] & exit /b 0"]],
             args.prod_name
           )
-          run = term_new({ "cmd", "/V:ON", "/c", cmd_wrap }, { cwd = args.file_dir })
+          run = term_new({ "cmd", "/V:ON", "/c", cmd_wrap }, {
+            cwd = args.file_dir,
+            on_exit = clean_product,
+          })
         else
-          run = term_new({ prod_path }, { cwd = args.file_dir })
+          run = term_new({ prod_path }, {
+            cwd = args.file_dir,
+            on_exit = clean_product,
+          })
         end
         if run then
-          run:await()
+          run:wait()
+          return
         end
       else
-        build:notify_err()
+        lib.warn(result.stderr or "Build failed")
       end
-      if futil.is_file(prod_path) then
-        vim.fs.rm(prod_path)
-      end
+      clean_product()
     end)
     return
   end
@@ -223,10 +237,7 @@ function M.task_run(task, args)
     return
   end
 
-  local run = term_new(cmd_args, { cwd = args.file_dir })
-  if run then
-    run:start()
-  end
+  term_new(cmd_args, { cwd = args.file_dir })
 end
 
 return M

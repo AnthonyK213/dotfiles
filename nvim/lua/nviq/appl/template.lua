@@ -1,6 +1,6 @@
 local lib = require("nviq.util.lib")
 local futil = require("nviq.util.f")
-local futures = require("nviq.util.futures")
+local autil = require("nviq.util.a")
 
 local _template_dir = vim.fs.joinpath(vim.fn.stdpath("config"), "tmpl")
 
@@ -128,8 +128,8 @@ function M:create_project()
     return
   end
 
-  futures.spawn(function()
-    local name = futures.ui.select(vim.tbl_keys(self.templates), {
+  autil.task.start("template.create_project", function()
+    local name = autil.ui.select(vim.tbl_keys(self.templates), {
       prompt = "Select a template: "
     })
 
@@ -141,7 +141,7 @@ function M:create_project()
     local args = {}
 
     for _, arg in ipairs(template:get_args()) do
-      local val = futures.ui.input { prompt = arg .. ": " }
+      local val = autil.ui.input { prompt = arg .. ": " }
       if not val then
         return
       end

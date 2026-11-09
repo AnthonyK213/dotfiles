@@ -1,5 +1,5 @@
 local lib = require("nviq.util.lib")
-local Deque = require("nviq.util.collections").Deque
+local Deque = require("nviq.util.c").Deque
 -- local Syntax = require("nviq.util.syntax").Syntax
 
 local M = {}
@@ -210,6 +210,7 @@ function M.regen_ordered_list(bufnr, lnum, options)
   local curr = ListItemRegion.get(bufnr, lnum)
   if not curr or not curr.ordered then return end
 
+  ---@type nviq.util.c.Deque<nviq.appl.markdown.ListItemRegion>
   local regions = Deque(curr)
   local index
 

@@ -62,17 +62,17 @@ function M.start()
     end
   end
 
-  vim.api.nvim_clear_autocmds { group = _augroup, buffer = bufnr }
+  vim.api.nvim_clear_autocmds { group = _augroup, buf = bufnr }
 
   vim.api.nvim_create_autocmd({ "BufEnter", "TextChanged", "TextChangedI" }, {
     group = _augroup,
-    buffer = bufnr,
+    buf = bufnr,
     callback = update
   })
 
   vim.api.nvim_create_autocmd({ "CursorMoved", "CursorMovedI" }, {
     group = _augroup,
-    buffer = bufnr,
+    buf = bufnr,
     callback = scroll
   })
 

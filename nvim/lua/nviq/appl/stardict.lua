@@ -2,7 +2,7 @@ local ffi = require("ffi")
 local lib = require("nviq.util.lib")
 local futil = require("nviq.util.f")
 local rsmod = require("nviq.appl.rsmod")
-local futures = require("nviq.util.futures")
+local autil = require("nviq.util.a")
 
 local _stardict_path = vim.uv.os_homedir() .. "/.stardict/dic/"
 
@@ -35,7 +35,8 @@ local function show(result)
 end
 
 ---@param data string
-local function on_stdout(data)
+---@async
+local function show_output(data)
   local ok, results = pcall(vim.json.decode, data)
   if not ok then
     lib.warn(results)
@@ -46,16 +47,14 @@ local function on_stdout(data)
   elseif #results == 1 then
     show(results[1])
   else
-    futures.spawn(function()
-      local choice, indice = futures.ui.select(results, {
-        prompt = "Select one result:",
-        format_item = function(item)
-          return item.word
-        end
-      })
-      if not choice then return end
-      show(results[indice])
-    end)
+    local choice, indice = autil.ui.select(results, {
+      prompt = "Select one result:",
+      format_item = function(item)
+        return item.word
+      end
+    })
+    if not choice then return end
+    show(results[indice])
   end
 end
 
@@ -74,8 +73,8 @@ local function check_dict()
       return true
     end
   end
-  futures.spawn(function()
-    local yes_no = futures.ui.input {
+  autil.task.start("stardict.download_prompt", function()
+    local yes_no = autil.ui.input {
       prompt = "No local dictionary found, get one? [Y/n] "
     }
     if yes_no and yes_no:lower() == "y" then
@@ -163,12 +162,21 @@ function M.stardict(word)
   end
 
   if lib.has_exe("sdcv") then
-    local p = futures.Process.new("sdcv", { args = { "-n", "-j", word } })
-    p:on_stdout(function(_, data) on_stdout(data) end)
-    p:start()
+    autil.task.start("stardict.lookup", function()
+      local result = autil.process.run({ "sdcv", "-n", "-j", word }, {
+        text = true,
+      })
+      if result.code ~= 0 then
+        lib.warn(result.stderr or "sdcv failed")
+        return
+      end
+      show_output(result.stdout or "[]")
+    end)
   else
     local result = M:lookup(word)
-    vim.schedule_wrap(on_stdout)(result)
+    autil.task.start("stardict.lookup", function()
+      show_output(result)
+    end)
   end
 end
 

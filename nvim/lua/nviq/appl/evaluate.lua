@@ -1,4 +1,4 @@
-local Stack = require("nviq.util.collections").Stack
+local Stack = require("nviq.util.c").Stack
 
 local M = {}
 
@@ -179,7 +179,9 @@ Ast.__index = Ast
 function Ast.parse(str)
   local pre_parse = str:gsub("[%(%)]", function(s) return " " .. s .. " " end)
   local seg_arr = vim.split(vim.trim(pre_parse), "%s+")
+  ---@type nviq.util.c.Stack<integer>
   local frame_stack = Stack()
+  ---@type nviq.util.c.Stack<nviq.appl.evaluate.AstNode>
   local node_stack = Stack()
 
   for _, seg in ipairs(seg_arr) do
@@ -189,6 +191,7 @@ function Ast.parse(str)
     elseif seg == ")" then
       -- Merge current frame, pop the frame_stack.
       local top = frame_stack:pop()
+      ---@type nviq.util.c.Stack<nviq.appl.evaluate.AstNode>
       local child = Stack()
       while node_stack:count() > top do
         child:push(node_stack:pop())

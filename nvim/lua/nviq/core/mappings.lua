@@ -51,7 +51,7 @@ vim.keymap.set("n", "<M-,>", function()
     vim.api.nvim_set_current_dir(cfg_dir)
   elseif opt_file then
     vim.cmd.new(opt_file)
-    local schema_uri = vim.uri_from_fname(vim.fs.joinpath(cfg_dir, "schema.json"))
+    local schema_uri = vim.uri.from_fname(vim.fs.joinpath(cfg_dir, "schema.json"))
     vim.api.nvim_buf_set_lines(0, 0, 1, true, {
       "{",
       string.format([[  "$schema": "%s"]], schema_uri),
@@ -165,9 +165,9 @@ for key, val in pairs {
     local mode = lib.get_mode()
     if mode == lib.Mode.Normal then
       local word = _G.NVIQ.handlers.get_word()
-      txt = vim.uri_encode(word)
+      txt = vim.uri.encode(word)
     elseif mode == lib.Mode.Visual then
-      txt = vim.uri_encode(lib.get_gv())
+      txt = vim.uri.encode(lib.get_gv())
     else
       return
     end

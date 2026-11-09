@@ -1,5 +1,3 @@
-local Iterator = require("nviq.util.collections.iter")
-
 local function _max(a, b) return a > b end
 local function _min(a, b) return a < b end
 local function _swap(list, i, j) list[i], list[j] = list[j], list[i] end
@@ -14,15 +12,15 @@ local function _get_comparer(comparer)
   elseif not vim.is_callable(comparer) then
     error("Invalid comparer")
   else
-    return comparer
+    return comparer --[[@as fun(a: any, b: any):boolean]]
   end
 end
 
----@class nviq.collections.PriorityQueue
----@field private m_data any[]
+---@class nviq.util.c.PriorityQueue<T>
+---@field private m_data T[]
 ---@field private m_size integer
----@field private m_comp fun(a: any, b: any):boolean
----@operator call:nviq.collections.PriorityQueue
+---@field private m_comp fun(a: T, b: T):boolean
+---@operator call:nviq.util.c.PriorityQueue
 local PriorityQueue = {}
 
 ---@private
@@ -36,8 +34,8 @@ setmetatable(PriorityQueue, {
 
 ---Initializes a new instance of the `PriorityQueue` with the specified custom
 ---priority comparer.
----@param comparer? "max"|"min"|fun(a: any, b: any):boolean Custom comparer dictating the ordering of elements. Uses "max" if the argument is `nil`.
----@return nviq.collections.PriorityQueue
+---@param comparer? "max"|"min"|fun(a: T, b: T):boolean Custom comparer dictating the ordering of elements. Uses "max" if the argument is `nil`.
+---@return nviq.util.c.PriorityQueue
 function PriorityQueue.new(comparer)
   local pq = {
     m_data = {},
@@ -45,34 +43,6 @@ function PriorityQueue.new(comparer)
     m_comp = _get_comparer(comparer),
   }
   setmetatable(pq, PriorityQueue)
-  return pq
-end
-
----Initializes a new instance of the `PriorityQueue` with the specified elements
----and custom priority comparer.
----@param iterable nviq.collections.Iterable
----@param comparer? "max"|"min"|fun(a: any, b: any):boolean Custom comparer dictating the ordering of elements. Uses "max" if the argument is `nil`.
----@return nviq.collections.PriorityQueue
-function PriorityQueue.from(iterable, comparer)
-  local data = {}
-  local size = 0
-  for i, v in Iterator(iterable):consume() do
-    data[i] = v
-    size = size + 1
-  end
-
-  ---@type nviq.collections.PriorityQueue
-  local pq = {
-    m_data = data,
-    m_size = size,
-    m_comp = _get_comparer(comparer),
-  }
-  setmetatable(pq, PriorityQueue)
-
-  for i = bit.rshift(size, 1), 1, -1 do
-    pq:_heapify(i)
-  end
-
   return pq
 end
 
@@ -106,7 +76,7 @@ function PriorityQueue:_heapify(i)
 end
 
 ---Returns the priority comparer used by the `PriorityQueue`.
----@return fun(a: any, b: any):boolean
+---@return fun(a: T, b: T):boolean
 function PriorityQueue:comparer()
   return self.m_comp
 end
@@ -136,7 +106,7 @@ function PriorityQueue:dequeue()
 end
 
 ---Adds the specified element to the `PriorityQueue`.
----@param item any
+---@param item T
 function PriorityQueue:enqueue(item)
   self.m_size = self.m_size + 1
   local i = self.m_size
@@ -151,23 +121,15 @@ end
 
 ---Adds the specified element to the `PriorityQueue`, and immediately removes
 ---the minimal element, returning the result.
----@param item any
----@return any
+---@param item T
+---@return T
 function PriorityQueue:enqueue_dequeue(item)
   self:enqueue(item)
   return self:dequeue()
 end
 
----Enqueues a sequence of elements pairs to the `PriorityQueue`.
----@param iterable nviq.collections.Iterable
-function PriorityQueue:enqueue_range(iterable)
-  for _, v in Iterator(iterable):consume() do
-    self:enqueue(v)
-  end
-end
-
 ---Returns the minimal element from the `PriorityQueue` without removing it.
----@return any
+---@return T?
 function PriorityQueue:peek()
   if self.m_size > 0 then
     return self.m_data[1]
