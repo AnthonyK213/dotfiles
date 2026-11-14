@@ -7,32 +7,22 @@ local autil = require("nviq.util.a")
 
 vim.o.mouse = "nvic"
 
--- netrw
+-- dir
 
-vim.g.netrw_altv = 1
-vim.g.netrw_banner = 0
-vim.g.netrw_winsize = 20
-vim.g.netrw_liststyle = 0
-vim.g.netrw_browse_split = 0
-vim.g.netrw_clipboard = 0
-vim.g.netrw_fastbrowse = 0
-vim.g.netrw_timefmt = "%Y-%m-%d %H:%M"
-vim.g.netrw_sort_by = "name"
-
-vim.keymap.set("n", "<leader>op", "<Cmd>Explore<CR>")
+vim.keymap.set("n", "<leader>op", function()
+  if vim.bo.filetype == "directory" then
+    pcall(vim.cmd.bdelete)
+  else
+    pcall(vim.cmd.edit, ".")
+  end
+end)
 
 vim.api.nvim_create_autocmd("FileType", {
-  group = vim.api.nvim_create_augroup("nviq.appl.offline.netrw", { clear = true }),
-  pattern = "netrw",
+  group = vim.api.nvim_create_augroup("nviq.appl.offline.dir", { clear = true }),
+  pattern = "directory",
   callback = function(tbl)
     vim.bo[tbl.buf].buflisted = false
     vim.bo[tbl.buf].bufhidden = "wipe"
-
-    ---@type vim.keymap.set.Opts
-    local opt = { remap = true, buf = tbl.buf }
-    vim.keymap.set("n", "a", "%", opt) -- New file
-    vim.keymap.set("n", "r", "R", opt) -- Rename file
-    vim.keymap.set("n", "<leader>op", "<Cmd>Rexplore<CR>", opt)
   end
 })
 

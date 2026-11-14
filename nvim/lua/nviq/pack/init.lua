@@ -5,6 +5,7 @@ if _G.NVIQ.settings.general.offline then return end
 
 vim.g.loaded_netrw = 1
 vim.g.loaded_netrwPlugin = 1
+vim.g.loaded_nvim_dir_plugin = 1
 
 -- Setup packer.
 
