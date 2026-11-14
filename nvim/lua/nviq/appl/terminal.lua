@@ -170,8 +170,12 @@ function M.toggle()
       local bufnr = autil.ui.select(term_bufs, {
         prompt = "Select a terminal: ",
         format_item = function(item)
-          local term = _term_table[item]
-          return string.format("%s:%d", term:cmd()[1], item)
+          local info = vim.b[item].term_title
+          if not info then
+            local term = _term_table[item]
+            info = term:cmd()[1]
+          end
+          return string.format("[%d] %s", item, info)
         end
       })
       if bufnr then
