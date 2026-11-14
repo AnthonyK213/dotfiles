@@ -160,8 +160,18 @@ end)
 
 -- Git
 
+require("nviq.appl.diff").setup()
+
 vim.keymap.set("n", "<leader>gb", function()
   require("nviq.appl.git").blame_line()
+end)
+
+vim.keymap.set("n", "<leader>gj", function()
+  require("nviq.appl.diff").jump(1)
+end)
+
+vim.keymap.set("n", "<leader>gk", function()
+  require("nviq.appl.diff").jump(-1)
 end)
 
 -- Select UI
