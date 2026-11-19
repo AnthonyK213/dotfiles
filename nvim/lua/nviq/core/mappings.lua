@@ -45,8 +45,8 @@ vim.keymap.set("n", "<M-a>", "ggVG", {
 vim.keymap.set("n", "<M-,>", function()
   local lib = require("nviq.util.lib")
   local exists, opt_file = lib.get_dotfile("nvimrc")
-  local cfg_dir = vim.fn.stdpath("config")
-  if exists and opt_file then
+  local cfg_dir = vim.uv.fs_realpath(vim.fn.stdpath("config"))
+  if exists and opt_file and cfg_dir then
     lib.edit_file(opt_file)
     vim.api.nvim_set_current_dir(cfg_dir)
   elseif opt_file then
