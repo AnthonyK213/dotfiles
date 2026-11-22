@@ -168,6 +168,16 @@ end)
 
 -- Git
 
+require("nviq.appl.diff").setup()
+
+vim.keymap.set("n", "<leader>gj", function()
+  require("nviq.appl.diff").jump(1)
+end)
+
+vim.keymap.set("n", "<leader>gk", function()
+  require("nviq.appl.diff").jump(-1)
+end)
+
 vim.keymap.set("n", "<leader>gn", function()
   require("nviq.appl.git").status()
 end)
