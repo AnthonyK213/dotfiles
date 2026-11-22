@@ -60,7 +60,7 @@ packer.add {
 packer.add {
   src = "https://github.com/stevearc/oil.nvim",
   data = {
-    lazy = true,
+    lazy = false, -- Support starting with directory.
     conf = function()
       require("oil").setup {
         float = {
