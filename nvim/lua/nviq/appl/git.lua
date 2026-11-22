@@ -81,10 +81,10 @@ function M.blame_line()
     if blame_info then
       local hash = blame_info["hash"]
       if hash:match("^0+$") then
-        vim.print("Not Committed Yet")
+        vim.notify("Not Committed Yet")
         return
       end
-      vim.print(string.format("%s %s (%s): %s",
+      vim.notify(string.format("%s %s (%s): %s",
         hash:sub(1, 8),
         blame_info["author"],
         os.date("%Y-%m-%d %H:%M", tonumber(blame_info["author-time"])),
@@ -121,11 +121,7 @@ function M.add()
   end
 
   return autil.task.start("git.add", function()
-    local result = autil.process.run({ "git", "add", "-A" }, {
-      cwd = root,
-      text = true,
-    })
-
+    local result = autil.process.run({ "git", "add", "-A" }, { cwd = root, text = true })
     return handle_system_result(result, "Git stage failed")
   end)
 end
@@ -140,11 +136,7 @@ function M.reset()
   end
 
   return autil.task.start("git.add", function()
-    local result = autil.process.run({ "git", "reset" }, {
-      cwd = root,
-      text = true,
-    })
-
+    local result = autil.process.run({ "git", "reset" }, { cwd = root, text = true })
     return handle_system_result(result, "Git reset failed")
   end)
 end
@@ -320,14 +312,16 @@ end
 local status_win = nil
 local status_buf = nil
 
+---
+---@return vim.async.Task?
 function M.status()
   local root = M.get_root()
   if not root then
     lib.warn("Not a git repository.")
-    return
+    return nil
   end
 
-  autil.task.start("git.status", function()
+  return autil.task.start("git.status", function()
     local result = autil.process.run({ "git", "status", "-sb" }, {
       cwd = root,
       text = true
@@ -336,13 +330,9 @@ function M.status()
     local lines
     if result.code ~= 0 then
       lib.warn("Not a git repository.")
-      return
+      return result.code
     else
       lines = vim.split(result.stdout or "", "\n", { trimempty = true })
-      if #lines == 0 then
-        vim.notify("Working tree clean.")
-        return
-      end
     end
 
     if not status_win or not vim.api.nvim_win_is_valid(status_win) then
@@ -368,6 +358,8 @@ function M.status()
     vim.bo[status_buf].modifiable = true
     vim.api.nvim_buf_set_lines(status_buf, 0, -1, false, lines)
     vim.bo[status_buf].modifiable = false
+
+    return result.code
   end)
 end
 
