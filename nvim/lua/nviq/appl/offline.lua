@@ -168,9 +168,84 @@ end)
 
 -- Git
 
+vim.keymap.set("n", "<leader>gn", function()
+  require("nviq.appl.git").status()
+end)
+
 vim.keymap.set("n", "<leader>gb", function()
   require("nviq.appl.git").blame_line()
 end)
+
+vim.api.nvim_create_autocmd("FileType", {
+  group = vim.api.nvim_create_augroup("nviq.appl.offline.git", { clear = true }),
+  pattern = "nviq-git",
+  callback = function(tbl)
+    local opt = { buf = tbl.buf, silent = true }
+    vim.keymap.set("n", "gq", "<Cmd>close<CR>", opt)
+    vim.keymap.set("n", "+", function()
+      autil.task.start(function()
+        local git = require("nviq.appl.git")
+        local task = git.add()
+        if task then
+          local code = vim.async.await(task)
+          if code == 0 then
+            git.status()
+          end
+        end
+      end)
+    end, opt)
+    vim.keymap.set("n", "-", function()
+      autil.task.start(function()
+        local git = require("nviq.appl.git")
+        local task = git.reset()
+        if task then
+          local code = vim.async.await(task)
+          if code == 0 then
+            git.status()
+          end
+        end
+      end)
+    end, opt)
+    vim.keymap.set("n", "cc", function()
+      autil.task.start(function()
+        local git = require("nviq.appl.git")
+        local task = git.commit()
+        if task then
+          local code = vim.async.await(task)
+          if code == 0 then
+            git.status()
+          end
+        end
+      end)
+    end, opt)
+    vim.keymap.set("n", "<leader>gp", function()
+      autil.task.start(function()
+        local git = require("nviq.appl.git")
+        local job = git.pull()
+        if job then
+          vim.notify("Pulling...")
+          local result = job:wait()
+          if result.code == 0 then
+            git.status()
+          end
+        end
+      end)
+    end, opt)
+    vim.keymap.set("n", "<leader>gP", function()
+      autil.task.start(function()
+        local git = require("nviq.appl.git")
+        local job = git.push()
+        if job then
+          vim.notify("Pushing...")
+          local result = job:wait()
+          if result.code == 0 then
+            git.status()
+          end
+        end
+      end)
+    end, opt)
+  end
+})
 
 -- Select UI
 

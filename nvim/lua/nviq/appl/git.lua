@@ -1,5 +1,4 @@
 local lib = require("nviq.util.lib")
-local futil = require("nviq.util.f")
 local autil = require("nviq.util.a")
 
 local M = {}
@@ -7,9 +6,11 @@ local M = {}
 ---Returns the root directory of this repository.
 ---@return string?
 function M.get_root()
-  return vim.fs.root(0, function(name, path)
-    return name == ".git" and futil.is_dir(vim.fs.joinpath(path, name))
-  end)
+  local buf_path = vim.api.nvim_buf_get_name(0)
+  local start_path = buf_path ~= "" and buf_path or vim.uv.cwd()
+  if start_path then
+    return vim.fs.root(start_path, ".git")
+  end
 end
 
 ---Returns the current branch name.
@@ -93,18 +94,75 @@ function M.blame_line()
   end)
 end
 
+---
+---@param result vim.SystemCompleted
+---@param fallback_msg string
+---@return integer
+local function handle_system_result(result, fallback_msg)
+  if result.code == 0 then
+    vim.notify(result.stdout or "")
+  elseif result.stderr ~= "" then
+    lib.warn(result.stderr)
+  elseif result.stdout ~= "" then
+    lib.warn(result.stdout)
+  else
+    lib.warn(fallback_msg)
+  end
+  return result.code
+end
+
+---
+---@return vim.async.Task?
+function M.add()
+  local root = M.get_root()
+  if not root then
+    lib.warn("Not a git repository.")
+    return nil
+  end
+
+  return autil.task.start("git.add", function()
+    local result = autil.process.run({ "git", "add", "-A" }, {
+      cwd = root,
+      text = true,
+    })
+
+    return handle_system_result(result, "Git stage failed")
+  end)
+end
+
+---
+---@return vim.async.Task?
+function M.reset()
+  local root = M.get_root()
+  if not root then
+    lib.warn("Not a git repository.")
+    return nil
+  end
+
+  return autil.task.start("git.add", function()
+    local result = autil.process.run({ "git", "reset" }, {
+      cwd = root,
+      text = true,
+    })
+
+    return handle_system_result(result, "Git reset failed")
+  end)
+end
+
+---
+---@return vim.async.Task?
 function M.commit()
   local root = M.get_root()
   if not root then
     lib.warn("Not a git repository.")
-    return
+    return nil
   end
 
-  autil.task.start("git.commit", function()
+  return autil.task.start("git.commit", function()
     local message = autil.ui.input { prompt = "Commit message: " }
     if not message then
       lib.warn("Canceled")
-      return
+      return 1
     end
 
     local result = autil.process.run({ "git", "commit", "-m", message }, {
@@ -112,11 +170,7 @@ function M.commit()
       text = true,
     })
 
-    if result.code == 0 then
-      vim.notify(result.stdout or "")
-    else
-      lib.warn(result.stderr or "Git commit failed")
-    end
+    return handle_system_result(result, "Git commit failed")
   end)
 end
 
@@ -261,6 +315,60 @@ end
 ---@return nviq.util.a.Job?
 function M.push()
   return start_remote("push")
+end
+
+local status_win = nil
+local status_buf = nil
+
+function M.status()
+  local root = M.get_root()
+  if not root then
+    lib.warn("Not a git repository.")
+    return
+  end
+
+  autil.task.start("git.status", function()
+    local result = autil.process.run({ "git", "status", "-sb" }, {
+      cwd = root,
+      text = true
+    })
+
+    local lines
+    if result.code ~= 0 then
+      lib.warn("Not a git repository.")
+      return
+    else
+      lines = vim.split(result.stdout or "", "\n", { trimempty = true })
+      if #lines == 0 then
+        vim.notify("Working tree clean.")
+        return
+      end
+    end
+
+    if not status_win or not vim.api.nvim_win_is_valid(status_win) then
+      vim.cmd("botright split")
+      status_win = vim.api.nvim_get_current_win()
+    end
+
+    if not status_buf or not vim.api.nvim_buf_is_valid(status_buf) then
+      status_buf = vim.api.nvim_create_buf(false, true);
+      vim.bo[status_buf].buftype = "nofile"
+      vim.bo[status_buf].bufhidden = "wipe"
+      vim.bo[status_buf].swapfile = false
+      vim.bo[status_buf].filetype = "nviq-git"
+    end
+
+    vim.api.nvim_win_set_buf(status_win, status_buf)
+
+    vim.wo[status_win].number = false
+    vim.wo[status_win].relativenumber = false
+    vim.wo[status_win].signcolumn = "no"
+    vim.wo[status_win].winfixheight = true
+
+    vim.bo[status_buf].modifiable = true
+    vim.api.nvim_buf_set_lines(status_buf, 0, -1, false, lines)
+    vim.bo[status_buf].modifiable = false
+  end)
 end
 
 return M
