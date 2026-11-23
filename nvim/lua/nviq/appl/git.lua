@@ -309,8 +309,8 @@ function M.push()
   return start_remote("push")
 end
 
-local status_win = nil
-local status_buf = nil
+---@type integer?, integer?
+local status_win, status_buf = nil, nil
 
 ---
 ---@return vim.async.Task?
@@ -335,29 +335,29 @@ function M.status()
       lines = vim.split(result.stdout or "", "\n", { trimempty = true })
     end
 
-    if not status_win or not vim.api.nvim_win_is_valid(status_win) then
+    if not status_win or
+        not vim.api.nvim_win_is_valid(status_win) or
+        vim.api.nvim_win_get_buf(status_win) ~= status_buf then
       vim.cmd("botright split")
       status_win = vim.api.nvim_get_current_win()
     end
 
     if not status_buf or not vim.api.nvim_buf_is_valid(status_buf) then
       status_buf = vim.api.nvim_create_buf(false, true);
-      vim.bo[status_buf].buftype = "nofile"
-      vim.bo[status_buf].bufhidden = "wipe"
-      vim.bo[status_buf].swapfile = false
-      vim.bo[status_buf].filetype = "nviq-git"
     end
 
     vim.api.nvim_win_set_buf(status_win, status_buf)
 
-    vim.wo[status_win].number = false
-    vim.wo[status_win].relativenumber = false
-    vim.wo[status_win].signcolumn = "no"
-    vim.wo[status_win].winfixheight = true
+    vim.bo[status_buf].buftype = "nofile"
+    vim.bo[status_buf].bufhidden = "delete"
+    vim.bo[status_buf].swapfile = false
+    vim.bo[status_buf].filetype = "nviq-git"
 
     vim.bo[status_buf].modifiable = true
     vim.api.nvim_buf_set_lines(status_buf, 0, -1, false, lines)
     vim.bo[status_buf].modifiable = false
+
+    vim.api.nvim_set_current_win(status_win)
 
     return result.code
   end)
