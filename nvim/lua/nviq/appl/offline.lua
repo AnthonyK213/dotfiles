@@ -194,62 +194,81 @@ vim.api.nvim_create_autocmd("FileType", {
     vim.keymap.set("n", "gq", "<Cmd>close<CR>", opt)
     vim.keymap.set("n", "+", function()
       autil.task.start(function()
+        local root = vim.b[tbl.buf].nviq_git_root
         local git = require("nviq.appl.git")
         local task = git.add()
         if task then
           local code = vim.async.await(task)
           if code == 0 then
-            git.status()
+            git.status(root)
           end
         end
       end)
     end, opt)
     vim.keymap.set("n", "-", function()
       autil.task.start(function()
+        local root = vim.b[tbl.buf].nviq_git_root
         local git = require("nviq.appl.git")
         local task = git.reset()
         if task then
           local code = vim.async.await(task)
           if code == 0 then
-            git.status()
+            git.status(root)
+          end
+        end
+      end)
+    end, opt)
+    vim.keymap.set("n", "X", function()
+      autil.task.start(function()
+        local root = vim.b[tbl.buf].nviq_git_root
+        local git = require("nviq.appl.git")
+        local line = vim.api.nvim_get_current_line()
+        local task = git.discard(root, line, true)
+        if task then
+          local code = vim.async.await(task)
+          if code == 0 then
+            git.status(root)
           end
         end
       end)
     end, opt)
     vim.keymap.set("n", "cc", function()
       autil.task.start(function()
+        local root = vim.b[tbl.buf].nviq_git_root
         local git = require("nviq.appl.git")
         local task = git.commit()
         if task then
           local code = vim.async.await(task)
           if code == 0 then
-            git.status()
+            git.status(root)
           end
         end
       end)
     end, opt)
     vim.keymap.set("n", "<leader>gp", function()
       autil.task.start(function()
+        local root = vim.b[tbl.buf].nviq_git_root
         local git = require("nviq.appl.git")
         local job = git.pull()
         if job then
           vim.notify("Pulling...")
           local result = job:wait()
           if result.code == 0 then
-            git.status()
+            git.status(root)
           end
         end
       end)
     end, opt)
     vim.keymap.set("n", "<leader>gP", function()
       autil.task.start(function()
+        local root = vim.b[tbl.buf].nviq_git_root
         local git = require("nviq.appl.git")
         local job = git.push()
         if job then
           vim.notify("Pushing...")
           local result = job:wait()
           if result.code == 0 then
-            git.status()
+            git.status(root)
           end
         end
       end)
