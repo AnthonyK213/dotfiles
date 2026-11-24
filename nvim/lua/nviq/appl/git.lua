@@ -325,6 +325,11 @@ function M.push()
   return start_remote("push")
 end
 
+---@class nviq.appl.git.ChangeEntry
+---@field status string
+---@field path string
+---@field orig_path string?
+
 ---@type integer?, integer?
 local status_win, status_buf = nil, nil
 
@@ -341,17 +346,54 @@ function M.status(root)
   end
 
   return autil.task.start("git.status", function()
-    local result = autil.process.run({ "git", "status", "-sb" }, {
+    local result = autil.process.run({ "git", "status", "--porcelain=v1", "-z", "-b" }, {
       cwd = root,
       text = true
     })
 
-    local lines
+    local entries
     if result.code ~= 0 then
       lib.warn("Not a git repository.")
       return result.code
     else
-      lines = vim.split(result.stdout or "", "\n", { trimempty = true })
+      entries = vim.split(result.stdout or "", "\0", { plain = true, trimempty = true })
+    end
+
+    ---@type nviq.appl.git.ChangeEntry[]
+    local line_map = {}
+    ---@type string[]
+    local disp_lines = {}
+
+    local branch_info = entries[1]
+    if branch_info then
+      table.insert(disp_lines, branch_info)
+    end
+
+    local i = 2
+    while i <= #entries do
+      local entry = entries[i]
+      local status = entry:sub(1, 2)
+      local path = entry:sub(4)
+      local orig_path = nil
+
+      if status:match("[RC]") then
+        i = i + 1
+        orig_path = entries[i]
+      end
+
+      local disp_text = orig_path
+          and string.format("%s %s -> %s", status, orig_path, path)
+          or string.format("%s %s", status, path)
+
+      disp_text = disp_text:gsub("[\r\n]+", " ")
+      table.insert(disp_lines, disp_text)
+
+      line_map[#disp_lines] = {
+        status = status,
+        path = path,
+        orig_path = orig_path,
+      }
+      i = i + 1
     end
 
     if not status_win or
@@ -373,9 +415,10 @@ function M.status(root)
     vim.bo[status_buf].filetype = "nviq-git"
 
     vim.b[status_buf].nviq_git_root = root
+    vim.b[status_buf].nviq_git_entries = line_map
 
     vim.bo[status_buf].modifiable = true
-    vim.api.nvim_buf_set_lines(status_buf, 0, -1, false, lines)
+    vim.api.nvim_buf_set_lines(status_buf, 0, -1, false, disp_lines)
     vim.bo[status_buf].modifiable = false
 
     vim.api.nvim_set_current_win(status_win)
@@ -386,74 +429,67 @@ end
 
 ---
 ---@param root string
----@param info string
+---@param entry nviq.appl.git.ChangeEntry
 ---@param confirm? boolean
 ---@return vim.async.Task?
-function M.discard(root, info, confirm)
+function M.discard(root, entry, confirm)
   if not root or not futil.is_dir(root) then
     return
   end
 
-  local status = info:sub(1, 2)
-  local path = info:sub(4)
-
-  if not M.is_valid_status(status) then
+  if not M.is_valid_status(entry.status) then
     return
   end
 
   if confirm then
-    local choice = vim.fn.confirm("Discard changes in this file?\n" .. path, "&Yes\n&No", 2)
+    local choice = vim.fn.confirm("Discard changes in this file?\n" .. entry.path, "&Yes\n&No", 2)
     if choice ~= 1 then
       return
     end
   end
 
-  path = path:gsub('^"(.*)"$', "%1")
-  local x = status:sub(1, 1)
+  local x = entry.status:sub(1, 1)
 
   return autil.task.start("git.discard", function()
-    if status == "??" then
-      local abs_path = vim.fs.normalize(vim.fs.joinpath(root, path))
+    if entry.status == "??" then
+      local abs_path = vim.fs.normalize(vim.fs.joinpath(root, entry.path))
       vim.fs.rm(abs_path, { recursive = true })
       return 0
     elseif x == "A" then
-      local abs_path = vim.fs.normalize(vim.fs.joinpath(root, path))
+      local abs_path = vim.fs.normalize(vim.fs.joinpath(root, entry.path))
       local result = autil.process.run({ "git", "rm", "-f", "--", abs_path }, {
         cwd = root,
         text = true,
       })
       return handle_system_result(result, "Git discard failed")
     elseif x == "R" or x == "C" then
-      local old_rel, new_rel = path:match("^(.-) %-> (.+)$")
-      if old_rel and new_rel then
-        old_rel = old_rel:gsub('^"(.*)"$', "%1")
-        new_rel = new_rel:gsub('^"(.*)"$', "%1")
+      if not entry.orig_path then
+        return 1
+      end
+      local old_abs = vim.fs.normalize(vim.fs.joinpath(root, entry.orig_path))
+      local new_abs = vim.fs.normalize(vim.fs.joinpath(root, entry.path))
 
-        local old_abs = vim.fs.normalize(vim.fs.joinpath(root, old_rel))
-        local new_abs = vim.fs.normalize(vim.fs.joinpath(root, new_rel))
-
-        local result = autil.process.run({ "git", "reset", "HEAD", "--", old_abs, new_abs }, {
+      local result = autil.process.run({ "git", "reset", "HEAD", "--", old_abs, new_abs }, {
+        cwd = root,
+        text = true,
+      })
+      local code = handle_system_result(result, "Git discard failed")
+      if code ~= 0 then
+        return code
+      end
+      if futil.exist(new_abs) then
+        vim.fs.rm(new_abs, { recursive = true })
+      end
+      if x == "R" then
+        result = autil.process.run({ "git", "checkout", "HEAD", "--", old_abs }, {
           cwd = root,
           text = true,
         })
-        local code = handle_system_result(result, "Git discard failed")
-        if code ~= 0 then
-          return code
-        end
-        if futil.exist(new_abs) then
-          vim.fs.rm(new_abs, { recursive = true })
-        end
-        if x == "R" then
-          result = autil.process.run({ "git", "checkout", "HEAD", "--", old_abs }, {
-            cwd = root,
-            text = true,
-          })
-          code = handle_system_result(result, "Git discard failed")
-        end
-        return code
+        code = handle_system_result(result, "Git discard failed")
       end
+      return code
     else
-      local abs_path = vim.fs.normalize(vim.fs.joinpath(root, path))
+      local abs_path = vim.fs.normalize(vim.fs.joinpath(root, entry.path))
       local result = autil.process.run({ "git", "checkout", "HEAD", "--", abs_path }, {
         cwd = root,
         text = true,

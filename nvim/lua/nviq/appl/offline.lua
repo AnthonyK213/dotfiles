@@ -221,9 +221,14 @@ vim.api.nvim_create_autocmd("FileType", {
     vim.keymap.set("n", "X", function()
       autil.task.start(function()
         local root = vim.b[tbl.buf].nviq_git_root
+        ---@type nviq.appl.git.ChangeEntry[]
+        local entries = vim.b[tbl.buf].nviq_git_entries
+        if not root or not entries then return end
+        local lnum = vim.api.nvim_win_get_cursor(0)[1]
+        local entry = entries[lnum]
+        if not entry or entry == vim.NIL then return end
         local git = require("nviq.appl.git")
-        local line = vim.api.nvim_get_current_line()
-        local task = git.discard(root, line, true)
+        local task = git.discard(root, entry, true)
         if task then
           local code = vim.async.await(task)
           if code == 0 then
